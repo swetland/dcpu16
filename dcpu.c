@@ -7,6 +7,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
+#include <ctype.h>
 
 typedef uint16_t u16;
 typedef uint32_t u32;
@@ -77,7 +79,8 @@ void dcpu_step(struct dcpu *d) {
 			}
 			return;
 		default:
-			return;
+			fprintf(stderr, "< ILLEGAL OPCODE >\n");
+			exit(0);
 		}
 	}
 
@@ -133,11 +136,42 @@ cond:
 		d->skip = 0;
 		return;
 	} 
-	d->skip = res;
+	d->skip = !res;
 }
 
+void dumpheader(void) {
+	fprintf(stderr,
+		"PC   SP   OV   SKIP A    B    C    X    Y    Z    I    J\n"
+		"---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ----\n");
+}
+
+void dumpstate(struct dcpu *d) {
+	fprintf(stderr,
+		"%04x %04x %04x %04x %04x %04x %04x %04x %04x %04x %04x %04x\n",
+		d->pc, d->sp, d->ov, d->skip,
+		d->r[0], d->r[1], d->r[2], d->r[3], d->r[4], d->r[5], d->r[6], d->r[7]);
+}
+
+void load(struct dcpu *d, FILE *fp) {
+	char buf[128];
+	u16 n = 0;
+	while (!feof(fp) && fgets(buf, 128, fp)) {
+		if (!isalnum(buf[0]))
+			continue;
+		d->m[n++] = strtoul(buf, 0, 16);
+	}
+	fprintf(stderr,"< LOADED %d WORDS >\n", n);
+}
+	
 int main(int argc, char **argv) {
 	struct dcpu d;
+	memset(&d, 0, sizeof(d));
+	load(&d, stdin);
+	dumpheader();
+	for (;;) {
+		dumpstate(&d);
+		dcpu_step(&d);
+	}		
 	return 0;
 }
 
