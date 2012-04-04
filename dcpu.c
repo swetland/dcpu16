@@ -29,6 +29,25 @@ static u16 lit[0x20] = {
 	0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
 };
 
+enum opcode {
+    RESERVED = 0x0,
+    SET = 0x1,
+    ADD = 0x2,
+    SUB = 0x3,
+    MUL = 0x4,
+    DIV = 0x5,
+    MOD = 0x6,
+    SHL = 0x7,
+    SHR = 0x8,
+    AND = 0x9,
+    BOR = 0xa,
+    XOR = 0xb,
+    IFE = 0xc,
+    IFN = 0xd,
+    IFG = 0xe,
+    IFB = 0xf
+};
+
 u16 *dcpu_opr(struct dcpu *d, u16 code) {
 	switch (code) {
 	case 0x00: case 0x01: case 0x02: case 0x03:
@@ -62,7 +81,7 @@ u16 *dcpu_opr(struct dcpu *d, u16 code) {
 }
 
 void dcpu_step(struct dcpu *d) {
-	u16 op = d->m[d->pc++];
+	enum opcode op = d->m[d->pc++];
 	u16 dst;
 	u32 res;
 	u16 a, b, *aa;
@@ -89,35 +108,35 @@ void dcpu_step(struct dcpu *d) {
 	b = *dcpu_opr(d, op >> 10);
 
 	switch (op & 0xF) {
-	case 0x1: res = b;
+	case SET: res = b;
 		break;
-	case 0x2: res = a + b;
+	case ADD: res = a + b;
 		break;	
-	case 0x3: res = a - b;
+	case SUB: res = a - b;
 		break;
-	case 0x4: res = a * b;
+	case MUL: res = a * b;
 		break;
-	case 0x5: if (b) { res = a / b; } else { res = 0; }
+	case DIV: if (b) { res = a / b; } else { res = 0; }
 		break;
-	case 0x6: if (b) { res = a % b; } else { res = 0; }
+	case MOD: if (b) { res = a % b; } else { res = 0; }
 		break;
-	case 0x7: res = a << b;
+	case SHL: res = a << b;
 		break;
-	case 0x8: res = a >> b;
+	case SHR: res = a >> b;
 		break;
-	case 0x9: res = a & b;
+	case AND: res = a & b;
 		break;
-	case 0xA: res = a | b;
+	case BOR: res = a | b;
 		break;
-	case 0xB: res = a ^ b;
+	case XOR: res = a ^ b;
 		break;
-	case 0xC: res = (a==b);
+	case IFE: res = (a==b);
 		goto cond;
-	case 0xD: res = (a!=b);
+	case IFN: res = (a!=b);
 		goto cond;
-	case 0xE: res = (a>b);
+	case IFG: res = (a>b);
 		goto cond;
-	case 0xF: res = ((a&b)!=0);
+	case IFB: res = ((a&b)!=0);
 		goto cond;
 	}
 
