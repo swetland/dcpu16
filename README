@@ -1,3 +1,15 @@
 A C based implementation of Notch's DCPU-16, written for the fun of it.
 
 See: http://0x10c.com/doc/dcpu-16.txt
+
+Why: I enjoy hacking on small machines, virtual or otherwise, and I'm
+     amused by the concept of a space game with user programmable
+     virtual computer(s).  
+
+     Consider this a piece of "fan art" for 0x10c
+
+     Feel free to take it and run with it and do whatever you like.
+
+     Small bugfixes are welcome, but I'm not interested in investing a 
+     huge amount of time in maintaining this or dealing with large changes 
+     to the code. 
