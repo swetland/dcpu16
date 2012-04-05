@@ -38,12 +38,79 @@ void die(const char *fmt, ...) {
 	exit(1);
 }
 
+struct fixup {
+	struct fixup *next;
+	struct label *label;
+	u16 pc;
+};
+
+struct label {
+	struct label *next;
+	u16 pc;
+	u16 defined;
+	char name[1];
+};
+
+struct label *labels = 0;
+struct fixup *fixups = 0;
+
+struct label *mklabel(const char *name, u16 pc, u16 def) {
+	struct label *l;
+	for (l = labels; l; l = l->next) {
+		if (!strcasecmp(name, l->name)) {
+			if (def) {
+				if (l->defined)
+					die("cannot redefine label: %s", name);
+				l->defined = def;
+				l->pc = pc;
+			}
+			return l;
+		}
+	}
+	l = malloc(sizeof(*l) + strlen(name));
+	l->defined = def;
+	l->pc = pc;
+	strcpy(l->name, name);
+	l->next = labels;
+	labels = l;
+	return l;
+}
+
+void use_label(const char *name, u16 pc) {
+	struct label *l = mklabel(name, 0, 0);
+	if (l->defined) {
+		image[pc] = l->pc;
+	} else {
+		struct fixup *f = malloc(sizeof(*f));
+		f->next = fixups;
+		f->pc = pc;
+		f->label = l;
+		fixups = f;
+	}	
+}
+
+void set_label(const char *name, u16 pc) {
+	mklabel(name, pc, 1);
+}
+
+void resolve_fixups(void) {
+	struct fixup *f;
+	for (f = fixups; f; f = f->next) {
+		if (f->label->defined) {
+			image[f->pc] = f->label->pc;
+		} else {
+			die("undefined reference to '%s' at 0x%04x", f->label->name, f->pc);
+		}
+	}
+}
+
 enum tokens {
 	tA, tB, tC, tX, tY, tZ, tI, tJ,
 	tXXX, tSET, tADD, tSUB, tMUL, tDIV, tMOD, tSHL,
 	tSHR, tAND, tBOR, tXOR, tIFE, tIFN, tIFG, tIFB,
 	tJSR,
 	tPOP, tPEEK, tPUSH, tSP, tPC, tO,
+	tWORD,
 	tCOMMA, tOBRACK, tCBRACK, tCOLON,
 	tSTRING, tNUMBER, tEOF,
 };
@@ -53,6 +120,7 @@ static const char *tnames[] = {
 	"SHR", "AND", "BOR", "XOR", "IFE", "IFN", "IFG", "IFB",
 	"JSR",
 	"POP", "PEEK", "PUSH", "SP", "PC", "O",
+	"WORD",
 	",", "[", "]", ":",
 	"<STRING>", "<NUMBER>", "<EOF>",
 };
@@ -60,7 +128,7 @@ static const char *rnames[] = {
 	"A", "B", "C", "X", "Y", "Z", "I", "J",
 };
 
-#define LASTKEYWORD	tO
+#define LASTKEYWORD	tWORD
 
 int _next(void) {
 	char c;
@@ -115,6 +183,18 @@ void expect(int t) {
 		die("expecting %s, found %s", tnames[t], tnames[token]);
 }
 
+void assemble_imm_or_label(void) {
+	next();
+	if (token == tNUMBER) {
+		image[PC++] = tnumber;
+	} else if (token == tSTRING) {
+		image[PC] = 0;
+		use_label(tstring, PC++);
+	} else {
+		die("expected number or label");
+	}
+}
+
 int assemble_operand(void) {
 	int n;
 	next();
@@ -131,6 +211,10 @@ int assemble_operand(void) {
 	case tNUMBER:
 		image[PC++] = tnumber;
 		return 0x1f;
+	case tSTRING:
+		image[PC] = 0;
+		use_label(tstring, PC++);
+		return 0x1f;
 	default:
 		if (token != tOBRACK)
 			die("expected [");
@@ -144,15 +228,14 @@ int assemble_operand(void) {
 		if (token == tCBRACK) {
 			return n | 0x08;
 		} else if (token == tCOMMA) {
-			expect(tNUMBER); // handle labels
-			image[PC++] = tnumber;
+			assemble_imm_or_label();
 			expect(tCBRACK);
 			return n | 0x10;
 		} else {
 			die("invalid operand");
 		}
-	//case tSTRING:
-		// handle labels
+	case tSTRING:
+		use_label(tstring, PC);
 	case tNUMBER:
 		image[PC++] = tnumber;
 		next();
@@ -191,7 +274,10 @@ void assemble(const char *fn) {
 			goto done;
 		case tCOLON:
 			expect(tSTRING);
-			//setlabel(tstring, PC);
+			set_label(tstring, PC);
+			continue;
+		case tWORD:
+			assemble_imm_or_label();
 			continue;
 		case tSET: case tADD: case tSUB: case tMUL:
 		case tDIV: case tMOD: case tSHL: case tSHR:
@@ -239,6 +325,8 @@ int main(int argc, char **argv) {
 		assemble(argv[0]);
 	}
 
+	linebuffer[0] = 0;
+	resolve_fixups();
 	emit(outfn);
 	return 0;
 }
