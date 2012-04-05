@@ -56,32 +56,87 @@ static u16 lit[0x20] = {
 	0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
 };
 
-u16 *dcpu_opr(struct dcpu *d, u16 code) {
+enum opcode {
+    RESERVED = 0x0,
+    SET = 0x1,
+    ADD = 0x2,
+    SUB = 0x3,
+    MUL = 0x4,
+    DIV = 0x5,
+    MOD = 0x6,
+    SHL = 0x7,
+    SHR = 0x8,
+    AND = 0x9,
+    BOR = 0xa,
+    XOR = 0xb,
+    IFE = 0xc,
+    IFN = 0xd,
+    IFG = 0xe,
+    IFB = 0xf
+};
+
+enum value {
+    REGA    = 0x00,
+    REGB    = 0x01,
+    REGC    = 0x02,
+    REGX    = 0x03,
+    REGY    = 0x04,
+    REGZ    = 0x05,
+    REGI    = 0x06,
+    REGJ    = 0x07,
+    REGA_V  = 0x08,
+    REGB_V  = 0x09,
+    REGC_V  = 0x0a,
+    REGX_V  = 0x0b,
+    REGY_V  = 0x0c,
+    REGZ_V  = 0x0d,
+    REGI_V  = 0x0e,
+    REGJ_V  = 0x0f,
+    NW_REGA = 0x10,
+    NW_REGB = 0x11,
+    NW_REGC = 0x12,
+    NW_REGX = 0x13,
+    NW_REGY = 0x14,
+    NW_REGZ = 0x15,
+    NW_REGI = 0x16,
+    NW_REGJ = 0x17,
+    POP     = 0x18,
+    PEEK    = 0x19,
+    PUSH    = 0x1a,
+    SP      = 0x1b,
+    PC      = 0x1c,
+    O       = 0x1d,
+    NW      = 0x1e,
+    NW_LIT  = 0x1f,
+    LIT     = 0x20
+};
+
+u16 *dcpu_opr(struct dcpu *d, enum value code) {
 	switch (code) {
-	case 0x00: case 0x01: case 0x02: case 0x03:
-	case 0x04: case 0x05: case 0x06: case 0x07:
+	case REGA: case REGB: case REGC: case REGX:
+	case REGY: case REGZ: case REGI: case REGJ:
 		return d->r + code;
-	case 0x08: case 0x09: case 0x0a: case 0x0b:
-	case 0x0c: case 0x0d: case 0x0e: case 0x0f:
+	case REGA_V: case REGB_V: case REGC_V: case REGX_V:
+	case REGY_V: case REGZ_V: case REGI_V: case REGJ_V:
 		return d->m + d->r[code & 7];
-	case 0x10: case 0x11: case 0x12: case 0x13:
-	case 0x14: case 0x15: case 0x16: case 0x17:
+	case NW_REGA: case NW_REGB: case NW_REGC: case NW_REGX:
+	case NW_REGY: case NW_REGZ: case NW_REGI: case NW_REGJ:
 		return d->m + ((d->r[code & 7] + d->m[d->pc++]) & 0xffff);
-	case 0x18:
+	case POP:
 		return d->m + d->sp++;
-	case 0x19:
+	case PEEK:
 		return d->m + d->sp;
-	case 0x1a:
+	case PUSH:
 		return d->m + (--(d->sp));
-	case 0x1b:
+	case SP:
 		return &d->sp;
-	case 0x1c:
+	case PC:
 		return &d->pc;
-	case 0x1d:
+	case O:
 		return &d->ov;
-	case 0x1e:
+	case NW:
 		return d->m + d->m[d->pc++];
-	case 0x1f:
+	case NW_LIT:
 		return d->m + d->pc++;
 	default:
 		return lit + (code & 0x1F);
@@ -89,7 +144,7 @@ u16 *dcpu_opr(struct dcpu *d, u16 code) {
 }
 
 void dcpu_step(struct dcpu *d) {
-	u16 op = d->m[d->pc++];
+	enum opcode op = d->m[d->pc++];
 	u16 dst;
 	u32 res;
 	u16 a, b, *aa;
@@ -116,35 +171,35 @@ void dcpu_step(struct dcpu *d) {
 	b = *dcpu_opr(d, op >> 10);
 
 	switch (op & 0xF) {
-	case 0x1: res = b;
+	case SET: res = b;
 		break;
-	case 0x2: res = a + b;
+	case ADD: res = a + b;
 		break;	
-	case 0x3: res = a - b;
+	case SUB: res = a - b;
 		break;
-	case 0x4: res = a * b;
+	case MUL: res = a * b;
 		break;
-	case 0x5: if (b) { res = a / b; } else { res = 0; }
+	case DIV: if (b) { res = a / b; } else { res = 0; }
 		break;
-	case 0x6: if (b) { res = a % b; } else { res = 0; }
+	case MOD: if (b) { res = a % b; } else { res = 0; }
 		break;
-	case 0x7: res = a << b;
+	case SHL: res = a << b;
 		break;
-	case 0x8: res = a >> b;
+	case SHR: res = a >> b;
 		break;
-	case 0x9: res = a & b;
+	case AND: res = a & b;
 		break;
-	case 0xA: res = a | b;
+	case BOR: res = a | b;
 		break;
-	case 0xB: res = a ^ b;
+	case XOR: res = a ^ b;
 		break;
-	case 0xC: res = (a==b);
+	case IFE: res = (a==b);
 		goto cond;
-	case 0xD: res = (a!=b);
+	case IFN: res = (a!=b);
 		goto cond;
-	case 0xE: res = (a>b);
+	case IFG: res = (a>b);
 		goto cond;
-	case 0xF: res = ((a&b)!=0);
+	case IFB: res = ((a&b)!=0);
 		goto cond;
 	}
 
