@@ -192,6 +192,11 @@ nextline:
 					return n;
 			return tSTRING;
 		}
+		if ((c == '\'') && (*(lineptr+1) == '\'')) {
+			tnumber = (u16) (*lineptr++);
+			lineptr++;
+			return tNUMBER;
+		}
 		die("illegal character '%c'", c);
 		return tEOF;
 	}
