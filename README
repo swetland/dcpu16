@@ -1,4 +1,4 @@
-A C based implementation of Notch's DCPU-16, written for the fun of it.
+A C based assembler and vm for Notch's DCPU-16, written for the fun of it.
 
 See: http://0x10c.com/doc/dcpu-16.txt
 
