@@ -255,7 +255,7 @@ int assemble_operand(void) {
 	switch (token) {
 	case tA: case tB: case tC: case tX:
 	case tY: case tZ: case tI: case tJ:
-		n = token & 7;
+		n = 0x08 | (token & 7);
 		expect(tCBRACK);
 		return n;
 	case tSTRING:
