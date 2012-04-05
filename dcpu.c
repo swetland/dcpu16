@@ -40,6 +40,8 @@
 typedef uint16_t u16;
 typedef uint32_t u32;
 
+extern u16 *disassemble(u16 *pc, char *out);
+
 struct dcpu {
 	u16 r[8];
 	u16 pc;
@@ -151,15 +153,19 @@ void dcpu_step(struct dcpu *d) {
 
 void dumpheader(void) {
 	fprintf(stderr,
-		"PC   SP   OV   SKIP A    B    C    X    Y    Z    I    J\n"
-		"---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ----\n");
+		"PC   SP   OV   SKIP A    B    C    X    Y    Z    I    J    Instruction\n"
+		"---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- -----------\n");
 }
 
 void dumpstate(struct dcpu *d) {
+	char out[128];
+	disassemble(d->m + d->pc, out);
 	fprintf(stderr,
-		"%04x %04x %04x %04x %04x %04x %04x %04x %04x %04x %04x %04x\n",
+		"%04x %04x %04x %04x %04x %04x %04x %04x %04x %04x %04x %04x %s\n",
 		d->pc, d->sp, d->ov, d->skip,
-		d->r[0], d->r[1], d->r[2], d->r[3], d->r[4], d->r[5], d->r[6], d->r[7]);
+		d->r[0], d->r[1], d->r[2], d->r[3],
+		d->r[4], d->r[5], d->r[6], d->r[7],
+		out);
 }
 
 void load(struct dcpu *d, const char *fn) {

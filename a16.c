@@ -41,6 +41,8 @@
 typedef uint16_t u16;
 typedef uint32_t u32;
 
+extern u16 *disassemble(u16 *pc, char *out);
+
 static u16 image[65536] = { 0, };
 static u16 PC = 0;
 static FILE *fin;
@@ -151,10 +153,6 @@ static const char *tnames[] = {
 	",", "[", "]", ":", "+",
 	"<STRING>", "<NUMBER>", "<EOF>",
 };
-static const char *rnames[] = {
-	"A", "B", "C", "X", "Y", "Z", "I", "J",
-};
-
 #define LASTKEYWORD	tWORD
 
 int _next(void) {
@@ -329,13 +327,24 @@ done:
 
 void emit(const char *fn) {
 	FILE *fp;
-	int n;
+	u16 *pc = image;
+	u16 *end = image + PC;
+	u16 *dis = pc;
 	filename = fn;
 	linenumber = 0;
 	fp = fopen(fn, "w");
 	if (!fp) die("cannot write file");
-	for (n = 0; n < PC; n++)
-		fprintf(fp, "%04x\n", image[n]);
+
+	while (pc < end) {
+		if (pc == dis) {
+			char out[128];
+			dis = disassemble(pc, out);
+			fprintf(fp, "%04x\t%04x:\t%s\n", *pc, (unsigned)(pc-image), out);
+		} else {
+			fprintf(fp, "%04x\n", *pc);
+		}
+		pc++;
+	}
 	fclose(fp);
 }
 
@@ -359,9 +368,11 @@ int main(int argc, char **argv) {
 		assemble(argv[0]);
 	}
 
-	linebuffer[0] = 0;
-	resolve_fixups();
-	emit(outfn);
+	if (PC != 0) {
+		linebuffer[0] = 0;
+		resolve_fixups();
+		emit(outfn);
+	}
 	return 0;
 }
 
