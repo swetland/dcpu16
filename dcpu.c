@@ -116,54 +116,37 @@ void dcpu_step(struct dcpu *d) {
 	b = *dcpu_opr(d, op >> 10);
 
 	switch (op & 0xF) {
-	case 0x1: res = b;
-		break;
-	case 0x2: res = a + b;
-		break;	
-	case 0x3: res = a - b;
-		break;
-	case 0x4: res = a * b;
-		break;
-	case 0x5: if (b) { res = a / b; } else { res = 0; }
-		break;
-	case 0x6: if (b) { res = a % b; } else { res = 0; }
-		break;
-	case 0x7: res = a << b;
-		break;
-	case 0x8: res = a >> b;
-		break;
-	case 0x9: res = a & b;
-		break;
-	case 0xA: res = a | b;
-		break;
-	case 0xB: res = a ^ b;
-		break;
-	case 0xC: res = (a==b);
-		goto cond;
-	case 0xD: res = (a!=b);
-		goto cond;
-	case 0xE: res = (a>b);
-		goto cond;
-	case 0xF: res = ((a&b)!=0);
-		goto cond;
+	case 0x1: res = b; break;
+	case 0x2: res = a + b; break;	
+	case 0x3: res = a - b; break;
+	case 0x4: res = a * b; break;
+	case 0x5: if (b) { res = a / b; } else { res = 0; } break;
+	case 0x6: if (b) { res = a % b; } else { res = 0; } break;
+	case 0x7: res = a << b; break;
+	case 0x8: res = a >> b; break;
+	case 0x9: res = a & b; break;
+	case 0xA: res = a | b; break;
+	case 0xB: res = a ^ b; break;
+	case 0xC: res = (a==b); break;
+	case 0xD: res = (a!=b); break;
+	case 0xE: res = (a>b); break;
+	case 0xF: res = ((a&b)!=0); break;
 	}
 
 	if (d->skip) {
 		d->skip = 0;
 		return;
 	}
-	if (dst < 0x1f) {
-		*aa = res;
+
+	switch (op & 0xF) {
+	case 0x2: case 0x3: case 0x4: case 0x5: case 0x7: case 0x8:
 		d->ov = res >> 16;
+	case 0x1: case 0x6: case 0x9: case 0xA: case 0xB:
+		if (dst < 0x1f) *aa = res;
+		break;
+	case 0xC: case 0xD: case 0xE: case 0xF:
+		d->skip = !res;
 	}
-	return;
-
-cond:
-	if (d->skip) {
-		d->skip = 0;
-		return;
-	} 
-	d->skip = !res;
 }
 
 void dumpheader(void) {
