@@ -138,7 +138,7 @@ enum tokens {
 	tJSR,
 	tPOP, tPEEK, tPUSH, tSP, tPC, tO,
 	tWORD,
-	tCOMMA, tOBRACK, tCBRACK, tCOLON,
+	tCOMMA, tOBRACK, tCBRACK, tCOLON, tPLUS,
 	tSTRING, tNUMBER, tEOF,
 };
 static const char *tnames[] = {
@@ -148,7 +148,7 @@ static const char *tnames[] = {
 	"JSR",
 	"POP", "PEEK", "PUSH", "SP", "PC", "O",
 	"WORD",
-	",", "[", "]", ":",
+	",", "[", "]", ":", "+",
 	"<STRING>", "<NUMBER>", "<EOF>",
 };
 static const char *rnames[] = {
@@ -172,13 +172,13 @@ nextline:
 	}
 	switch ((c = *lineptr++)) {
 	case ',': return tCOMMA;
+	case '+': return tPLUS;
 	case '[': return tOBRACK;
 	case ']': return tCBRACK;
 	case ':': return tCOLON;
 	case '/': case ';': *lineptr = 0; goto nextline;
 	default:
-		if (isdigit(c) ||
-			(((c == '+') || (c == '-')) && isdigit(*lineptr))) {
+		if (isdigit(c) || ((c == '-') && isdigit(*lineptr))) {
 			tnumber = strtoul(lineptr-1, &lineptr, 0);
 			return tNUMBER;
 		}
@@ -223,7 +223,7 @@ void assemble_imm_or_label(void) {
 }
 
 int assemble_operand(void) {
-	int n;
+	u16 n;
 	next();
 	switch (token) {
 	case tA: case tB: case tC: case tX:
@@ -236,6 +236,8 @@ int assemble_operand(void) {
 	case tPC: return 0x1c;
 	case tO: return 0x1d;
 	case tNUMBER:
+		if (tnumber < 0x20)
+			return tnumber + 0x20;
 		image[PC++] = tnumber;
 		return 0x1f;
 	case tSTRING:
@@ -251,16 +253,8 @@ int assemble_operand(void) {
 	case tA: case tB: case tC: case tX:
 	case tY: case tZ: case tI: case tJ:
 		n = token & 7;
-		next();
-		if (token == tCBRACK) {
-			return n | 0x08;
-		} else if (token == tCOMMA) {
-			assemble_imm_or_label();
-			expect(tCBRACK);
-			return n | 0x10;
-		} else {
-			die("invalid operand");
-		}
+		expect(tCBRACK);
+		return n;
 	case tSTRING:
 		use_label(tstring, PC);
 	case tNUMBER:
@@ -268,8 +262,7 @@ int assemble_operand(void) {
 		next();
 		if (token == tCBRACK) {
 			return 0x1e;
-		} else if (token == tCOMMA) {
-			u16 n;
+		} else if ((token == tCOMMA) || (token == tPLUS)) {
 			next();
 			if ((token >= tA) && (token <= tJ)) {
 				n = 0x10 | (token & 7);
