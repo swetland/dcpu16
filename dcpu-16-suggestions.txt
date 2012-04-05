@@ -1,0 +1,18 @@
+Some comments on the DCPU-16 architecture - suggestions / feedback
+
+- Providing BEQ val, reladdr / BNE val, reladdr would probably be more
+  emulation-friendly than the IFE/IFN/IFG/IFB -- adjusting the PC is
+  simpler/cheaper than maintaining a "skip next" flag, or decoding
+  the length of the next instruction when processing the branch
+
+- Suggest replacing the 0x1f-0x3f encodings for the "a" operand with
+  alternatives to the literal/immediates.  Good candidates might be
+  special registers (interrupt control, system, etc) or IO registers.
+
+- Suggest making the immediate value in the [imm + reg] operand form
+  signed, to allow easy access to locals from a frame pointer.  This
+  also enables some other common data access patterns.
+
+- Consider providing interrupts for cycle count and "wall clock"
+  timers (if not general IO interrupts), to allow for preemptive
+  multitasking (and/or just debugging/watchdog processes). 
