@@ -268,8 +268,16 @@ int assemble_operand(void) {
 		next();
 		if (token == tCBRACK) {
 			return 0x1e;
-		} else if ((token >= tA) && (token <= tJ)) {
-			return 0x10 | (token & 7);
+		} else if (token == tCOMMA) {
+			u16 n;
+			next();
+			if ((token >= tA) && (token <= tJ)) {
+				n = 0x10 | (token & 7);
+			} else {
+				die("invalid register");
+			}
+			expect(tCBRACK);
+			return n;
 		} else {
 			die("invalid operand");
 		}
@@ -289,6 +297,7 @@ void assemble_binop(int op) {
 }
 
 void assemble(const char *fn) {
+	u16 pc, n;
 	fin = fopen(fn, "r");
 	filename = fn;
 	linenumber = 0;
@@ -311,6 +320,11 @@ void assemble(const char *fn) {
 		case tAND: case tBOR: case tXOR: case tIFE:
 		case tIFN: case tIFG: case tIFB:
 			assemble_binop(token - tXXX); 
+			continue;
+		case tJSR:
+			pc = PC++;
+			n = assemble_operand();
+			image[pc] = (n << 10) | 0x0010;
 			continue;
 		default:
 			die("unexpected: %s", tnames[token]);
