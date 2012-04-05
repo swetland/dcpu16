@@ -167,8 +167,6 @@ int main(int argc, char **argv) {
 	struct dcpu d;
 
 	memset(&d, 0, sizeof(d));
-	d.sp = 0xffff;
-
 	load(&d, stdin);
 
 	dumpheader();
