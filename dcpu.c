@@ -152,22 +152,28 @@ void dumpstate(struct dcpu *d) {
 		d->r[0], d->r[1], d->r[2], d->r[3], d->r[4], d->r[5], d->r[6], d->r[7]);
 }
 
-void load(struct dcpu *d, FILE *fp) {
+void load(struct dcpu *d, const char *fn) {
+	FILE *fp;
 	char buf[128];
 	u16 n = 0;
+	if (!(fp = fopen(fn, "r"))) {
+		fprintf(stderr, "cannot open: %s\n", fn);
+		exit(1);
+	}	
 	while (!feof(fp) && fgets(buf, 128, fp)) {
 		if (!isalnum(buf[0]))
 			continue;
 		d->m[n++] = strtoul(buf, 0, 16);
 	}
 	fprintf(stderr,"< LOADED %d WORDS >\n", n);
+	fclose(fp);
 }
 	
 int main(int argc, char **argv) {
 	struct dcpu d;
-
 	memset(&d, 0, sizeof(d));
-	load(&d, stdin);
+
+	load(&d, argc > 1 ? argv[1] : "out.hex");
 
 	dumpheader();
 	for (;;) {
