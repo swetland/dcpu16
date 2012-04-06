@@ -226,6 +226,17 @@ void assemble_imm_or_label(void) {
 	}
 }
 
+char unescape(char c) {
+        switch (c) {
+        case '\\': case '"': return c;
+        case '0': return 0x00; case 'b': return 0x08;
+        case 't': return 0x09; case 'n': return 0x0a;
+        case 'r': return 0x0d; case 'e': return 0x1b;
+        default: die("unknown escape sequence: \\%c", c);
+        }
+        return 0;
+}
+
 void assemble_data(void) {
 	int argc = -1;
 nextarg:
@@ -246,15 +257,10 @@ nextarg:
                 /* "literal \"strings\" with \n escape chars" */
                 while (*lineptr) {
                         char c = *lineptr++;
-                        if (!isascii(c))
-                                die("illegal character '%c'", c);
-
-                        if (c == '"')
-                                goto nextarg;
-
-                        if (c == '\\' && (iscntrl(*lineptr) || *lineptr == '\\' || *lineptr == '"'))
-                                c = *lineptr++;
-
+                        if (c == '"') goto nextarg;
+                        /* check for escaped characters */
+                        if (c == '\\')
+                                c = unescape(*lineptr++);
                         image[PC++] = (u16)c;
                 }
         } else {
