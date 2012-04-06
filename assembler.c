@@ -138,26 +138,25 @@ enum tokens {
 	tXXX, tSET, tADD, tSUB, tMUL, tDIV, tMOD, tSHL,
 	tSHR, tAND, tBOR, tXOR, tIFE, tIFN, tIFG, tIFB,
 	tJSR,
-	tPOP, tPEEK, tPUSH, tSP, tPC, tO,
+	tPOP, tPEEK, tPUSH, tSP, tPC, tO, tDAT,
 	tWORD,
-	tCOMMA, tOBRACK, tCBRACK, tCOLON, tPLUS,
-	tSTRING, tNUMBER, tEOF,
+	tCOMMA, tOBRACK, tCBRACK, tCOLON, tPLUS, tQUOTE,
+	tSTRING, tDATA, tNUMBER, tEOL, tEOF,
 };
 static const char *tnames[] = {
 	"A", "B", "C", "X", "Y", "Z", "I", "J",
 	"XXX", "SET", "ADD", "SUB", "MUL", "DIV", "MOD", "SHL",
 	"SHR", "AND", "BOR", "XOR", "IFE", "IFN", "IFG", "IFB",
 	"JSR",
-	"POP", "PEEK", "PUSH", "SP", "PC", "O",
+	"POP", "PEEK", "PUSH", "SP", "PC", "O", "DAT",
 	"WORD",
-	",", "[", "]", ":", "+",
-	"<STRING>", "<NUMBER>", "<EOF>",
+	",", "[", "]", ":", "+", "\"",
+	"<STRING>", "<DATA>", "<NUMBER>", "<EOL>", "<EOF>",
 };
 #define LASTKEYWORD	tWORD
 
 int _next(void) {
 	char c;
-nextline:
 	if (!*lineptr) {
 		if (feof(fin)) return tEOF;
 		if (fgets(linebuffer, 128, fin) == 0) return tEOF;
@@ -165,7 +164,7 @@ nextline:
 		linenumber++;
 	}
 	while (*lineptr <= ' ') {
-		if (*lineptr == 0) goto nextline;
+		if (*lineptr == 0) return tEOL;
 		lineptr++;
 	}
 	switch ((c = *lineptr++)) {
@@ -173,8 +172,9 @@ nextline:
 	case '+': return tPLUS;
 	case '[': return tOBRACK;
 	case ']': return tCBRACK;
+	case '"': return tQUOTE;
 	case ':': return tCOLON;
-	case '/': case ';': *lineptr = 0; goto nextline;
+	case '/': case ';': *lineptr = 0; return tEOL;
 	default:
 		if (isdigit(c) || ((c == '-') && isdigit(*lineptr))) {
 			tnumber = strtoul(lineptr-1, &lineptr, 0);
@@ -223,6 +223,44 @@ void assemble_imm_or_label(void) {
 	} else {
 		die("expected number or label");
 	}
+}
+
+void assemble_data(void) {
+	int argc = -1;
+nextarg:
+	argc++;
+	next();
+
+	if (argc % 2) {
+                if (token == tEOL) return;
+                if (token == tCOMMA) goto nextarg;
+		die("expected comma or newline");
+        }
+
+	/* 0x0000 */
+	if (token == tNUMBER)
+		image[PC++] = tnumber;
+
+	else if (token == tQUOTE) {
+                /* "literal \"strings\" with \n escape chars" */
+                while (*lineptr) {
+                        char c = *lineptr++;
+                        if (!isascii(c))
+                                die("illegal character '%c'", c);
+
+                        if (c == '"')
+                                goto nextarg;
+
+                        if (c == '\\' && (iscntrl(*lineptr) || *lineptr == '\\' || *lineptr == '"'))
+                                c = *lineptr++;
+
+                        image[PC++] = (u16)c;
+                }
+        } else {
+		die("expecting <NUMBER> or <DATA>, found %s", tnames[token]);
+        }
+
+	goto nextarg;
 }
 
 int assemble_operand(void) {
@@ -304,9 +342,14 @@ void assemble(const char *fn) {
 		switch (token) {
 		case tEOF:
 			goto done;
+		case tEOL:
+			continue;
 		case tCOLON:
 			expect(tSTRING);
 			set_label(tstring, PC);
+			continue;
+		case tDAT:
+			assemble_data();
 			continue;
 		case tWORD:
 			assemble_imm_or_label();
