@@ -37,6 +37,10 @@
 #include <string.h>
 #include <ctype.h>
 
+#define SCREEN_REGION (0x8000)
+#define SCREEN_WIDTH  (36)
+#define SCREEN_HEIGHT (12)
+
 typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
@@ -104,7 +108,7 @@ void dcpu_skip(struct dcpu *d) {
 		d->pc += skiptable[(op >> 4) & 31];	
 }
 
-void dcpu_step(struct dcpu *d) {
+int dcpu_step(struct dcpu *d) {
 	u16 op = d->m[d->pc++];
 	u16 dst;
 	u32 res;
@@ -128,14 +132,14 @@ void dcpu_step(struct dcpu *d) {
 	case 0x9: res = a & b; break;
 	case 0xA: res = a | b; break;
 	case 0xB: res = a ^ b; break;
-	case 0xC: if (a!=b) dcpu_skip(d); return;
-	case 0xD: if (a==b) dcpu_skip(d); return;
-	case 0xE: if (a<=b) dcpu_skip(d); return;
-	case 0xF: if ((a&b)==0) dcpu_skip(d); return;
+	case 0xC: if (a!=b) dcpu_skip(d); return 1;
+	case 0xD: if (a==b) dcpu_skip(d); return 1;
+	case 0xE: if (a<=b) dcpu_skip(d); return 1;
+	case 0xF: if ((a&b)==0) dcpu_skip(d); return 1;
 	}
 
 	if (dst < 0x1f) *aa = res;
-	return;
+	return 1;
 
 extended:
 	a = *dcpu_opr(d, op >> 10);
@@ -143,17 +147,39 @@ extended:
 	case 0x01:
 		d->m[--(d->sp)] = d->pc;
 		d->pc = a;
-		return;
+		return 1;
 	default:
 		fprintf(stderr, "< ILLEGAL OPCODE >\n");
-		exit(0);
+                return 0; 
 	}
+        return 1;
 }
 
 void dumpheader(void) {
 	fprintf(stderr,
 		"PC   SP   OV   A    B    C    X    Y    Z    I    J    Instruction\n"
 		"---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- -----------\n");
+}
+
+void dumpboxhl(void) {
+        fputc('+', stderr);
+        for (int i = SCREEN_WIDTH; i--;)
+               fputc('-', stderr);
+        fprintf(stderr, "+\n");
+}
+
+void dumpscreen(struct dcpu *d) {
+        dumpboxhl();
+        for (int y = 0; y < SCREEN_HEIGHT; y++) {
+                fputc('|', stderr);
+                for (int x = 0; x < SCREEN_WIDTH;  x++) {
+                        u16 c = d->m[SCREEN_REGION + (y * SCREEN_WIDTH) + x];
+                        c = c & 0xff;
+                        fputc(isprint(c) ? c : ' ', stderr);
+                }
+                fprintf(stderr, "|\n");
+        }
+        dumpboxhl();
 }
 
 void dumpstate(struct dcpu *d) {
@@ -191,10 +217,13 @@ int main(int argc, char **argv) {
 	load(&d, argc > 1 ? argv[1] : "out.hex");
 
 	dumpheader();
-	for (;;) {
-		dumpstate(&d);
-		dcpu_step(&d);
-	}		
+        do {
+                //dumpscreen(&d);
+                dumpstate(&d);
+        } while (dcpu_step(&d));
+
+        dumpscreen(&d);
+
 	return 0;
 }
 

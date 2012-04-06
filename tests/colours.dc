@@ -1,0 +1,41 @@
+; Notch's second "hello word" program.
+; http://i.imgur.com/XIXc4.jpg
+; Supposed to show formatting.
+:start
+    set i, 0
+    set j, 0
+    set b, 0xf100
+
+:nextchar
+    set a, [data+i]
+    ife a, 0
+       set PC, end
+    ifg a, 0xff
+       set PC, setcolor
+    bor a, b
+    set [0x8000+j], a
+    add i, 1
+    add j, 1
+    set PC, nextchar
+
+:setcolor
+    set b, a
+    and b, 0xff
+    shl b, 8
+    ifg a, 0x1ff
+        add b, 0x80 ; Add high bit to each character we color. So the character must be 7-bit ASCII
+    add i, 1
+    set PC, nextchar
+
+:data
+    dat 0x170, "Hello ", 0x2e1, "world", 0x170, ", how are you?", 0
+    ; Color format:
+    ; After processing:
+    ; 0x170 -> b = 0x7000 -> 0111 0000 0XXX XXXX = white(grey) on black
+    ; 0x2e1 -> b = 0xe180 -> 1110 0001 1XXX XXXX = yellow on blue
+    ; b gets OR'd with each character.
+    ; ANSI says: black is 0, white is 7, yellow is 3, blue is 4
+    ; If black is 0 and grey is 7, it's <FORE> <BACK> <EXTRA BIT> or <FORE> <EXTRA BIT> <BACK>
+:end
+    ;set PC, start
+    WORD 0xeee0

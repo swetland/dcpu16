@@ -37,6 +37,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <ctype.h>
+#include <strings.h>
 #include <getopt.h>
 
 typedef uint16_t u16;
@@ -145,26 +146,25 @@ enum tokens {
 	tXXX, tSET, tADD, tSUB, tMUL, tDIV, tMOD, tSHL,
 	tSHR, tAND, tBOR, tXOR, tIFE, tIFN, tIFG, tIFB,
 	tJSR,
-	tPOP, tPEEK, tPUSH, tSP, tPC, tO,
+	tPOP, tPEEK, tPUSH, tSP, tPC, tO, tDAT,
 	tWORD,
-	tCOMMA, tOBRACK, tCBRACK, tCOLON, tPLUS,
-	tSTRING, tNUMBER, tEOF,
+	tCOMMA, tOBRACK, tCBRACK, tCOLON, tPLUS, tQUOTE,
+	tSTRING, tDATA, tNUMBER, tEOL, tEOF,
 };
 static const char *tnames[] = {
 	"A", "B", "C", "X", "Y", "Z", "I", "J",
 	"XXX", "SET", "ADD", "SUB", "MUL", "DIV", "MOD", "SHL",
 	"SHR", "AND", "BOR", "XOR", "IFE", "IFN", "IFG", "IFB",
 	"JSR",
-	"POP", "PEEK", "PUSH", "SP", "PC", "O",
+	"POP", "PEEK", "PUSH", "SP", "PC", "O", "DAT",
 	"WORD",
-	",", "[", "]", ":", "+",
-	"<STRING>", "<NUMBER>", "<EOF>",
+	",", "[", "]", ":", "+", "\"",
+	"<STRING>", "<DATA>", "<NUMBER>", "<EOL>", "<EOF>",
 };
 #define LASTKEYWORD	tWORD
 
 int _next(void) {
 	char c;
-nextline:
 	if (!*lineptr) {
 		if (feof(fin)) return tEOF;
 		if (fgets(linebuffer, 128, fin) == 0) return tEOF;
@@ -172,7 +172,7 @@ nextline:
 		linenumber++;
 	}
 	while (*lineptr <= ' ') {
-		if (*lineptr == 0) goto nextline;
+		if (*lineptr == 0) return tEOL;
 		lineptr++;
 	}
 	switch ((c = *lineptr++)) {
@@ -180,8 +180,9 @@ nextline:
 	case '+': return tPLUS;
 	case '[': case '(': return tOBRACK;
 	case ']': case ')': return tCBRACK;
+	case '"': return tQUOTE;
 	case ':': return tCOLON;
-	case '/': case ';': *lineptr = 0; goto nextline;
+	case '/': case ';': *lineptr = 0; return tEOL;
 	default:
 		if (isdigit(c) || ((c == '-') && isdigit(*lineptr))) {
 			tnumber = strtoul(lineptr-1, &lineptr, 0);
@@ -230,6 +231,50 @@ void assemble_imm_or_label(void) {
 	} else {
 		die("expected number or label");
 	}
+}
+
+char unescape(char c) {
+        switch (c) {
+        case '\\': case '"': return c;
+        case '0': return 0x00; case 'b': return 0x08;
+        case 't': return 0x09; case 'n': return 0x0a;
+        case 'r': return 0x0d; case 'e': return 0x1b;
+        default: die("unknown escape sequence: \\%c", c);
+        }
+        return 0;
+}
+
+void assemble_data(void) {
+	int argc = -1;
+nextarg:
+	argc++;
+	next();
+
+	if (argc % 2) {
+                if (token == tEOL) return;
+                if (token == tCOMMA) goto nextarg;
+		die("expected comma or newline");
+        }
+
+	/* 0x0000 */
+	if (token == tNUMBER)
+		image[PC++] = tnumber;
+
+	else if (token == tQUOTE) {
+                /* "literal \"strings\" with \n escape chars" */
+                while (*lineptr) {
+                        char c = *lineptr++;
+                        if (c == '"') goto nextarg;
+                        /* check for escaped characters */
+                        if (c == '\\')
+                                c = unescape(*lineptr++);
+                        image[PC++] = (u16)c;
+                }
+        } else {
+		die("expecting <NUMBER> or <DATA>, found %s", tnames[token]);
+        }
+
+	goto nextarg;
 }
 
 int assemble_operand(void) {
@@ -311,9 +356,14 @@ void assemble(const char *fn) {
 		switch (token) {
 		case tEOF:
 			goto done;
+		case tEOL:
+			continue;
 		case tCOLON:
 			expect(tSTRING);
 			set_label(tstring, PC);
+			continue;
+		case tDAT:
+			assemble_data();
 			continue;
 		case tWORD:
 			assemble_imm_or_label();
@@ -375,6 +425,7 @@ void emit(const char *fn, enum outformat format) {
 
 static void usage(int argc, char **argv)
 {
+        (void) argc;
 	fprintf(stderr, "usage: %s [-o output] [-O output_format] <input file(s)>\n", argv[0]);
 	fprintf(stderr, "\toutput_format can be one of: pretty, hex, binary\n");
 }
