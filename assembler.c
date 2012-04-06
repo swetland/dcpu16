@@ -37,6 +37,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <ctype.h>
+#include <getopt.h>
 
 typedef uint16_t u16;
 typedef uint32_t u32;
@@ -359,24 +360,53 @@ void emit(const char *fn) {
 		fclose(fp);
 }
 
+static void usage(int argc, char **argv)
+{
+	fprintf(stderr, "usage: %s [-o output] <input file(s)>\n", argv[0]);
+}
+
 int main(int argc, char **argv) {
 	const char *outfn = "out.hex";
 
-	while (argc > 1) {
-		argc--;
-		argv++;
-		if (argv[0][0] == '-') {
-			if (!strcmp(argv[0],"-o")) {
-				if (argc > 1) {
-					outfn = argv[1];
-					argc--;
-					argv++;
-					continue;
-				}
-			}
-			die("unknown option: %s", argv[0]);
+	for (;;) {
+		int c;
+		int option_index = 0;
+
+		static struct option long_options[] = {
+			{"help", 0, 0, 'h'},
+			{"output", 1, 0, 'o'},
+			{0, 0, 0, 0},
+		};
+
+		c = getopt_long(argc, argv, "ho:", long_options, &option_index);
+		if (c == -1)
+			break;
+
+		switch (c) {
+			case 'h':
+				usage(argc, argv);
+				return 0;
+			case 'o':
+				outfn = optarg;
+				break;
+			default:
+				usage(argc, argv);
+				return 1;
 		}
+	}
+
+	if (argc - optind < 1) {
+		usage(argc, argv);
+		return 1;
+	}
+
+	argc -= optind;
+	argv += optind;
+
+	while (argc >= 1) {
 		assemble(argv[0]);
+		argv++;
+		argc--;
 	}
 
 	if (PC != 0) {
