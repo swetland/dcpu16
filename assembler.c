@@ -171,8 +171,8 @@ nextline:
 	switch ((c = *lineptr++)) {
 	case ',': return tCOMMA;
 	case '+': return tPLUS;
-	case '[': return tOBRACK;
-	case ']': return tCBRACK;
+	case '[': case '(': return tOBRACK;
+	case ']': case ')': return tCBRACK;
 	case ':': return tCOLON;
 	case '/': case ';': *lineptr = 0; goto nextline;
 	default:
