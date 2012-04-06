@@ -425,6 +425,7 @@ void emit(const char *fn, enum outformat format) {
 
 static void usage(int argc, char **argv)
 {
+        (void) argc;
 	fprintf(stderr, "usage: %s [-o output] [-O output_format] <input file(s)>\n", argv[0]);
 	fprintf(stderr, "\toutput_format can be one of: pretty, hex, binary\n");
 }
