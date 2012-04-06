@@ -41,6 +41,7 @@
 #define SCREEN_WIDTH  (36)
 #define SCREEN_HEIGHT (12)
 
+typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
 
@@ -51,7 +52,7 @@ struct dcpu {
 	u16 pc;
 	u16 sp;
 	u16 ov;
-	u16 skip;
+	u16 unused;
 	u16 m[65536];
 };
 
@@ -94,28 +95,26 @@ u16 *dcpu_opr(struct dcpu *d, u16 code) {
 	}
 }
 
+static u8 skiptable[32] = { /* operand forms that advance pc */
+	[0x10] = 1, [0x11] = 1, [0x12] = 1, [0x13] = 1,
+	[0x14] = 1, [0x15] = 1, [0x16] = 1, [0x17] = 1,
+	[0x1E] = 1, [0x1F] = 1,
+};
+
+void dcpu_skip(struct dcpu *d) {
+	u16 op = d->m[d->pc++];
+	d->pc += skiptable[op >> 10];
+	if ((op & 15) == 0)
+		d->pc += skiptable[(op >> 4) & 31];	
+}
+
 int dcpu_step(struct dcpu *d) {
 	u16 op = d->m[d->pc++];
 	u16 dst;
 	u32 res;
 	u16 a, b, *aa;
 
-	if ((op & 0xF) == 0) {
-		switch ((op >> 4) & 0x3F) {
-		case 0x01:
-			a = *dcpu_opr(d, op >> 10);
-			if (d->skip) {
-				d->skip = 0;
-			} else {
-				d->m[--(d->sp)] = d->pc;
-				d->pc = a;
-			}
-			return 1;
-		default:
-			fprintf(stderr, "< ILLEGAL OPCODE >\n");
-                        return 0;
-		}
-	}
+	if ((op & 0xF) == 0) goto extended;
 
 	aa = dcpu_opr(d, dst = (op >> 4) & 0x3F);
 	a = *aa;
@@ -123,43 +122,43 @@ int dcpu_step(struct dcpu *d) {
 
 	switch (op & 0xF) {
 	case 0x1: res = b; break;
-	case 0x2: res = a + b; break;	
-	case 0x3: res = a - b; break;
-	case 0x4: res = a * b; break;
-	case 0x5: if (b) { res = a / b; } else { res = 0; } break;
+	case 0x2: res = a + b; d->ov = res >> 16; break;	
+	case 0x3: res = a - b; d->ov = res >> 16; break;
+	case 0x4: res = a * b; d->ov = res >> 16; break;
+	case 0x5: if (b) { res = a / b; } else { res = 0; } d->ov = res >> 16; break;
 	case 0x6: if (b) { res = a % b; } else { res = 0; } break;
-	case 0x7: res = a << b; break;
-	case 0x8: res = a >> b; break;
+	case 0x7: res = a << b; d->ov = res >> 16; break;
+	case 0x8: res = a >> b; d->ov = res >> 16; break;
 	case 0x9: res = a & b; break;
 	case 0xA: res = a | b; break;
 	case 0xB: res = a ^ b; break;
-	case 0xC: res = (a==b); break;
-	case 0xD: res = (a!=b); break;
-	case 0xE: res = (a>b); break;
-	case 0xF: res = ((a&b)!=0); break;
+	case 0xC: if (a!=b) dcpu_skip(d); return 1;
+	case 0xD: if (a==b) dcpu_skip(d); return 1;
+	case 0xE: if (a<=b) dcpu_skip(d); return 1;
+	case 0xF: if ((a&b)==0) dcpu_skip(d); return 1;
 	}
 
-	if (d->skip) {
-		d->skip = 0;
+	if (dst < 0x1f) *aa = res;
+	return 1;
+
+extended:
+	a = *dcpu_opr(d, op >> 10);
+	switch ((op >> 4) & 0x3F) {
+	case 0x01:
+		d->m[--(d->sp)] = d->pc;
+		d->pc = a;
 		return 1;
-	}
-
-	switch (op & 0xF) {
-	case 0x2: case 0x3: case 0x4: case 0x5: case 0x7: case 0x8:
-		d->ov = res >> 16;
-	case 0x1: case 0x6: case 0x9: case 0xA: case 0xB:
-		if (dst < 0x1f) *aa = res;
-		break;
-	case 0xC: case 0xD: case 0xE: case 0xF:
-		d->skip = !res;
+	default:
+		fprintf(stderr, "< ILLEGAL OPCODE >\n");
+                return 0; 
 	}
         return 1;
 }
 
 void dumpheader(void) {
 	fprintf(stderr,
-		"PC   SP   OV   SKIP A    B    C    X    Y    Z    I    J    Instruction\n"
-		"---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- -----------\n");
+		"PC   SP   OV   A    B    C    X    Y    Z    I    J    Instruction\n"
+		"---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- -----------\n");
 }
 
 void dumpboxhl(void) {
@@ -187,8 +186,8 @@ void dumpstate(struct dcpu *d) {
 	char out[128];
 	disassemble(d->m + d->pc, out);
 	fprintf(stderr,
-		"%04x %04x %04x %04x %04x %04x %04x %04x %04x %04x %04x %04x %s\n",
-		d->pc, d->sp, d->ov, d->skip,
+		"%04x %04x %04x %04x %04x %04x %04x %04x %04x %04x %04x %s\n",
+		d->pc, d->sp, d->ov,
 		d->r[0], d->r[1], d->r[2], d->r[3],
 		d->r[4], d->r[5], d->r[6], d->r[7],
 		out);

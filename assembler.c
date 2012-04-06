@@ -38,6 +38,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <strings.h>
+#include <getopt.h>
 
 typedef uint16_t u16;
 typedef uint32_t u32;
@@ -55,6 +56,12 @@ static char *lineptr = linebuffer;
 static int token;
 static char tstring[128];
 static u16 tnumber;
+
+enum outformat {
+	OUTFORMAT_PRETTY,
+	OUTFORMAT_HEX,
+	OUTFORMAT_BINARY,
+};
 
 void die(const char *fmt, ...) {
 	va_list ap;
@@ -380,53 +387,110 @@ done:
 	fclose(fin);
 }
 
-void emit(const char *fn) {
+void emit(const char *fn, enum outformat format) {
 	FILE *fp;
 	u16 *pc = image;
 	u16 *end = image + PC;
 	u16 *dis = pc;
 	filename = fn;
 	linenumber = 0;
-	fp = fopen(fn, "w");
+
+	if (!strcmp(fn, "-")) {
+		fp = stdout;
+	} else {
+		fp = fopen(fn, "w");
+	}
 	if (!fp) die("cannot write file");
 
 	while (pc < end) {
-		if (pc == dis) {
-			char out[128];
-			dis = disassemble(pc, out);
-			fprintf(fp, "%04x\t%04x:\t%s\n", *pc, (unsigned)(pc-image), out);
-		} else {
+		if (format == OUTFORMAT_PRETTY) {
+			if (pc == dis) {
+				char out[128];
+				dis = disassemble(pc, out);
+				fprintf(fp, "%04x\t%04x:\t%s\n", *pc, (unsigned)(pc-image), out);
+			} else {
+				fprintf(fp, "%04x\n", *pc);
+			}
+		} else if (format == OUTFORMAT_HEX) {
 			fprintf(fp, "%04x\n", *pc);
+		} else if (format == OUTFORMAT_BINARY) {
+			/* XXX handle host endian */
+			fwrite(pc, sizeof(*pc), 1, fp);
 		}
 		pc++;
 	}
-	fclose(fp);
+	if (fp != stdout)
+		fclose(fp);
+}
+
+static void usage(int argc, char **argv)
+{
+	fprintf(stderr, "usage: %s [-o output] [-O output_format] <input file(s)>\n", argv[0]);
+	fprintf(stderr, "\toutput_format can be one of: pretty, hex, binary\n");
 }
 
 int main(int argc, char **argv) {
 	const char *outfn = "out.hex";
+	enum outformat oformat = OUTFORMAT_PRETTY;
 
-	while (argc > 1) {
-		argc--;
-		argv++;
-		if (argv[0][0] == '-') {
-			if (!strcmp(argv[0],"-o")) {
-				if (argc > 1) {
-					outfn = argv[1];
-					argc--;
-					argv++;
-					continue;
+	for (;;) {
+		int c;
+		int option_index = 0;
+
+		static struct option long_options[] = {
+			{"help", 0, 0, 'h'},
+			{"output", 1, 0, 'o'},
+			{"outformat", 1, 0, 'O'},
+			{0, 0, 0, 0},
+		};
+
+		c = getopt_long(argc, argv, "ho:O:", long_options, &option_index);
+		if (c == -1)
+			break;
+
+		switch (c) {
+			case 'h':
+				usage(argc, argv);
+				return 0;
+			case 'o':
+				outfn = optarg;
+				break;
+			case 'O':
+				if (!strcasecmp(optarg, "binary")) {
+					oformat = OUTFORMAT_BINARY;
+				} else if (!strcasecmp(optarg, "hex")) {
+					oformat = OUTFORMAT_HEX;
+				} else if (!strcasecmp(optarg, "pretty")) {
+					oformat = OUTFORMAT_PRETTY;
+				} else {
+					usage(argc, argv);
+					return 1;
 				}
-			}
-			die("unknown option: %s", argv[0]);
+				break;
+			default:
+				usage(argc, argv);
+				return 1;
 		}
+	}
+
+	if (argc - optind < 1) {
+		usage(argc, argv);
+		return 1;
+	}
+
+	argc -= optind;
+	argv += optind;
+
+	while (argc >= 1) {
 		assemble(argv[0]);
+		argv++;
+		argc--;
 	}
 
 	if (PC != 0) {
 		linebuffer[0] = 0;
 		resolve_fixups();
-		emit(outfn);
+		emit(outfn, oformat);
 	}
 	return 0;
 }
