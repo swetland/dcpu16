@@ -1,0 +1,7 @@
+*.swp
+*~
+tags
+TAGS
+cscope.out
+*.bin
+*.hex
