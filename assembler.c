@@ -337,7 +337,12 @@ void emit(const char *fn) {
 	u16 *dis = pc;
 	filename = fn;
 	linenumber = 0;
-	fp = fopen(fn, "w");
+
+	if (!strcmp(fn, "-")) {
+		fp = stdout;
+	} else {
+		fp = fopen(fn, "w");
+	}
 	if (!fp) die("cannot write file");
 
 	while (pc < end) {
@@ -350,7 +355,8 @@ void emit(const char *fn) {
 		}
 		pc++;
 	}
-	fclose(fp);
+	if (fp != stdout)
+		fclose(fp);
 }
 
 int main(int argc, char **argv) {
