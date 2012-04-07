@@ -37,20 +37,9 @@
 #include <string.h>
 #include <ctype.h>
 
-typedef uint8_t u8;
-typedef uint16_t u16;
-typedef uint32_t u32;
+#include "emulator.h"
 
 extern u16 *disassemble(u16 *pc, char *out);
-
-struct dcpu {
-	u16 r[8];
-	u16 pc;
-	u16 sp;
-	u16 ov;
-	u16 unused;
-	u16 m[65536];
-};
 
 static u16 lit[0x20] = {
 	0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
@@ -149,52 +138,3 @@ extended:
 		exit(0);
 	}
 }
-
-void dumpheader(void) {
-	fprintf(stderr,
-		"PC   SP   OV   A    B    C    X    Y    Z    I    J    Instruction\n"
-		"---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- -----------\n");
-}
-
-void dumpstate(struct dcpu *d) {
-	char out[128];
-	disassemble(d->m + d->pc, out);
-	fprintf(stderr,
-		"%04x %04x %04x %04x %04x %04x %04x %04x %04x %04x %04x %s\n",
-		d->pc, d->sp, d->ov,
-		d->r[0], d->r[1], d->r[2], d->r[3],
-		d->r[4], d->r[5], d->r[6], d->r[7],
-		out);
-}
-
-void load(struct dcpu *d, const char *fn) {
-	FILE *fp;
-	char buf[128];
-	u16 n = 0;
-	if (!(fp = fopen(fn, "r"))) {
-		fprintf(stderr, "cannot open: %s\n", fn);
-		exit(1);
-	}	
-	while (!feof(fp) && fgets(buf, 128, fp)) {
-		if (!isalnum(buf[0]))
-			continue;
-		d->m[n++] = strtoul(buf, 0, 16);
-	}
-	fprintf(stderr,"< LOADED %d WORDS >\n", n);
-	fclose(fp);
-}
-	
-int main(int argc, char **argv) {
-	struct dcpu d;
-	memset(&d, 0, sizeof(d));
-
-	load(&d, argc > 1 ? argv[1] : "out.hex");
-
-	dumpheader();
-	for (;;) {
-		dumpstate(&d);
-		dcpu_step(&d);
-	}		
-	return 0;
-}
-
