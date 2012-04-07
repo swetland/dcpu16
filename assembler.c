@@ -188,11 +188,11 @@ int _next(void) {
 			tnumber = strtoul(lineptr-1, &lineptr, 0);
 			return tNUMBER;
 		}
-		if (isalpha(c)) {
+		if (isalpha(c) || c == '_') {
 			int n;
 			char *x = tstring;
 			lineptr--;
-			while (isalnum(*lineptr))
+			while (isalnum(*lineptr) || *lineptr == '_')
 				*x++ = tolower(*lineptr++);
 			*x = 0;
 			for (n = 0; n <= LASTKEYWORD; n++)
