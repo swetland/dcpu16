@@ -39,12 +39,14 @@
 #include <ctype.h>
 #include <getopt.h>
 
+typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
 
 extern u16 *disassemble(u16 *pc, char *out);
 
 static u16 image[65536] = { 0, };
+static u8 note[65536] = { 0, };
 static u16 PC = 0;
 static FILE *fin;
 static const char *filename = "";
@@ -146,9 +148,10 @@ enum tokens {
 	tSHR, tAND, tBOR, tXOR, tIFE, tIFN, tIFG, tIFB,
 	tJSR,
 	tPOP, tPEEK, tPUSH, tSP, tPC, tO,
-	tWORD,
+	tJMP, tMOV,
+	tDATA, tDAT, tDW, tWORD,
 	tCOMMA, tOBRACK, tCBRACK, tCOLON, tPLUS,
-	tSTRING, tNUMBER, tEOF,
+	tSTRING, tQSTRING, tNUMBER, tEOF,
 };
 static const char *tnames[] = {
 	"A", "B", "C", "X", "Y", "Z", "I", "J",
@@ -156,14 +159,15 @@ static const char *tnames[] = {
 	"SHR", "AND", "BOR", "XOR", "IFE", "IFN", "IFG", "IFB",
 	"JSR",
 	"POP", "PEEK", "PUSH", "SP", "PC", "O",
-	"WORD",
+	"JMP", "MOV",
+	"DATA", "DAT", "DW", "WORD",
 	",", "[", "]", ":", "+",
-	"<STRING>", "<NUMBER>", "<EOF>",
+	"<STRING>", "<QUOTED-STRING>", "<NUMBER>", "<EOF>",
 };
 #define LASTKEYWORD	tWORD
 
 int _next(void) {
-	char c;
+	char c, *x;
 nextline:
 	if (!*lineptr) {
 		if (feof(fin)) return tEOF;
@@ -182,6 +186,28 @@ nextline:
 	case ']': return tCBRACK;
 	case ':': return tCOLON;
 	case '/': case ';': *lineptr = 0; goto nextline;
+	case '"':
+		x = tstring;
+		for (;;) {
+			switch((c = *lineptr++)) {
+			case 0:
+				die("unterminated string");
+			case '"':
+				*x = 0;
+				return tQSTRING;
+			case '\\':
+				switch((c = *lineptr++)) {
+				case 'n': *x++ = '\n'; break;
+				case 't': *x++ = '\t'; break;
+				case 'r': *x++ = '\r'; break;
+				default:
+					*x++ = c; break;
+				}
+				break;
+			default:
+				*x++ = c;
+			}
+		}
 	default:
 		if (isdigit(c) || ((c == '-') && isdigit(*lineptr))) {
 			tnumber = strtoul(lineptr-1, &lineptr, 0);
@@ -189,7 +215,7 @@ nextline:
 		}
 		if (isalpha(c) || c == '_') {
 			int n;
-			char *x = tstring;
+			x = tstring;
 			lineptr--;
 			while (isalnum(*lineptr) || *lineptr == '_')
 				*x++ = tolower(*lineptr++);
@@ -221,15 +247,26 @@ void expect(int t) {
 }
 
 void assemble_imm_or_label(void) {
-	next();
-	if (token == tNUMBER) {
-		image[PC++] = tnumber;
-	} else if (token == tSTRING) {
-		image[PC] = 0;
-		use_label(tstring, PC++);
-	} else {
-		die("expected number or label");
-	}
+	do {
+		next();
+		if (token == tNUMBER) {
+			note[PC] = 'd';
+			image[PC++] = tnumber;
+		} else if (token == tSTRING) {
+			note[PC] = 'd';
+			image[PC] = 0;
+			use_label(tstring, PC++);
+		} else if (token == tQSTRING) {
+			char *x = tstring;
+			while (*x) {
+				note[PC] = 'd';
+				image[PC++] = *x++;
+			}
+		} else {
+			die("expected number or label");
+		}
+		next();
+	} while (token == tCOMMA);
 }
 
 int assemble_operand(void) {
@@ -262,9 +299,23 @@ int assemble_operand(void) {
 	switch (token) {
 	case tA: case tB: case tC: case tX:
 	case tY: case tZ: case tI: case tJ:
-		n = 0x08 | (token & 7);
+		n = token & 7;
+		next();
+		if (token == tCBRACK)
+			return 0x08 | n;
+		if ((token != tCOMMA) && (token != tPLUS))
+			die("expected , or +");
+		next();
+		if (token == tSTRING) {
+			use_label(tstring, PC);
+			image[PC++] = 0;
+		} else if (token == tNUMBER) {
+			image[PC++] = tnumber;
+		} else {
+			die("expected immediate value");
+		}
 		expect(tCBRACK);
-		return n;
+		return 0x10 | n;
 	case tSTRING:
 		use_label(tstring, PC);
 	case tNUMBER:
@@ -291,12 +342,17 @@ int assemble_operand(void) {
 }
 
 void assemble_binop(int op) {
-	int pc = PC++;
+	u16 pc = PC++;
 	int a, b;
 	a = assemble_operand();
 	expect(tCOMMA);
 	b = assemble_operand();
 	image[pc] = op | (a << 4) | (b << 10);
+}
+
+void assemble_jump(void) {
+	u16 pc = PC++;
+	image[pc] = 0x01c1 | (assemble_operand() << 10);
 }
 
 void assemble(const char *fn) {
@@ -308,16 +364,26 @@ void assemble(const char *fn) {
 
 	for (;;) {
 		next();
+again:
 		switch (token) {
 		case tEOF:
 			goto done;
+		case tSTRING:
+			expect(tCOLON);
+			set_label(tstring, PC);
+			continue;
 		case tCOLON:
 			expect(tSTRING);
 			set_label(tstring, PC);
 			continue;
-		case tWORD:
+		case tWORD: case tDAT: case tDATA: case tDW:
 			assemble_imm_or_label();
+			goto again;
+		case tJMP: // alias for SET PC, ...
+			assemble_jump();
 			continue;
+		case tMOV: // alias for SET
+			token = tSET;
 		case tSET: case tADD: case tSUB: case tMUL:
 		case tDIV: case tMOD: case tSHL: case tSHR:
 		case tAND: case tBOR: case tXOR: case tIFE:
@@ -354,7 +420,10 @@ void emit(const char *fn, enum outformat format) {
 
 	while (pc < end) {
 		if (format == OUTFORMAT_PRETTY) {
-			if (pc == dis) {
+			if (note[pc-image] == 'd') {
+				fprintf(fp, "%04x\n", *pc);
+				dis = pc + 1;
+			} else if (pc == dis) {
 				char out[128];
 				dis = disassemble(pc, out);
 				fprintf(fp, "%04x\t%04x:\t%s\n", *pc, (unsigned)(pc-image), out);

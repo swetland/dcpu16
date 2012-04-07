@@ -39,7 +39,7 @@
 typedef uint16_t u16;
 
 static const char *opcode[] = {
-	"XXX", "SET", "ADD", "SUB", "MUL", "DIV", "MOD", "SHL",
+	"XXX", "MOV", "ADD", "SUB", "MUL", "DIV", "MOD", "SHL",
 	"SHR", "AND", "BOR", "XOR", "IFE", "IFN", "IFG", "IFB",
 };
 static const char regs[8] = "ABCXYZIJ";
@@ -50,7 +50,7 @@ static u16 *dis_operand(u16 *pc, u16 n, char *out) {
 	} else if (n < 0x10) {
 		sprintf(out,"[%c]",regs[n & 7]);
 	} else if (n < 0x18) {
-		sprintf(out,"[0x%04x+%c]",*pc++,regs[n & 7]);
+		sprintf(out,"[%c, 0x%04x]",regs[n & 7], *pc++);
 	} else if (n > 0x1f) {
 		sprintf(out,"%d", n - 0x20);
 	} else switch (n) {
@@ -71,6 +71,11 @@ u16 *disassemble(u16 *pc, char *out) {
 	u16 a = (n >> 4) & 0x3F;
 	u16 b = (n >> 10);
 	if (op > 0) {
+		if ((n & 0x03FF) == 0x1C1) {
+			sprintf(out,"JMP ");
+			pc = dis_operand(pc, b, out+strlen(out));
+			return pc;
+		}
 		sprintf(out,"%s ",opcode[op]);
 		pc = dis_operand(pc, a, out+strlen(out));
 		sprintf(out+strlen(out),", ");
