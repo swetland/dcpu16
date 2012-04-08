@@ -187,7 +187,7 @@ nextline:
 	case '[': return tOBRACK;
 	case ']': return tCBRACK;
 	case ':': return tCOLON;
-	case '/': case ';': *lineptr = 0; goto nextline;
+	case '/': case ';': case '#': *lineptr = 0; goto nextline;
 	case '"':
 		x = tstring;
 		for (;;) {
