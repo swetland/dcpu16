@@ -151,7 +151,7 @@ enum tokens {
 	tSHR, tAND, tBOR, tXOR, tIFE, tIFN, tIFG, tIFB,
 	tJSR,
 	tPOP, tPEEK, tPUSH, tSP, tPC, tO,
-	tJMP, tMOV,
+	tJMP, tMOV, tNOP,
 	tDATA, tDAT, tDW, tWORD,
 	tCOMMA, tOBRACK, tCBRACK, tCOLON, tPLUS,
 	tSTRING, tQSTRING, tNUMBER, tEOF,
@@ -163,7 +163,7 @@ static const char *tnames[] = {
 	"SHR", "AND", "BOR", "XOR", "IFE", "IFN", "IFG", "IFB",
 	"JSR",
 	"POP", "PEEK", "PUSH", "SP", "PC", "O",
-	"JMP", "MOV",
+	"JMP", "MOV", "NOP",
 	"DATA", "DAT", "DW", "WORD",
 	",", "[", "]", ":", "+",
 	"<STRING>", "<QUOTED-STRING>", "<NUMBER>", "<EOF>",
@@ -363,6 +363,11 @@ void assemble_binop(void) {
 		op = tSET;
 		a = assemble_operand();
 		b = 0x18; // pop
+	} else if (token == tNOP) {
+		// SET 0,0
+		op = tSET;
+		a = 0x20;
+		b = 0x20;
 	} else {
 		a = assemble_operand();
 		expect(tCOMMA);
@@ -412,7 +417,7 @@ again:
 		case tDIV: case tMOD: case tSHL: case tSHR:
 		case tAND: case tBOR: case tXOR: case tIFE:
 		case tIFN: case tIFG: case tIFB:
-		case tPUSH: case tPOP:
+		case tPUSH: case tPOP: case tNOP:
 			assemble_binop();
 			continue;
 		case tJSR:
