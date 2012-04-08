@@ -43,6 +43,8 @@ typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
 
+#define countof(a) (sizeof(a) / sizeof((a)[0]))
+
 extern u16 *disassemble(u16 *pc, char *out);
 
 static u16 image[65536] = { 0, };
@@ -144,7 +146,7 @@ void resolve_fixups(void) {
 
 enum tokens {
 	tA, tB, tC, tX, tY, tZ, tI, tJ,
-	tXXX, tSET, tADD, tSUB, tMUL, tDIV, tMOD, tSHL,
+	tSET, tADD, tSUB, tMUL, tDIV, tMOD, tSHL,
 	tSHR, tAND, tBOR, tXOR, tIFE, tIFN, tIFG, tIFB,
 	tJSR,
 	tPOP, tPEEK, tPUSH, tSP, tPC, tO,
@@ -155,7 +157,7 @@ enum tokens {
 };
 static const char *tnames[] = {
 	"A", "B", "C", "X", "Y", "Z", "I", "J",
-	"XXX", "SET", "ADD", "SUB", "MUL", "DIV", "MOD", "SHL",
+	"SET", "ADD", "SUB", "MUL", "DIV", "MOD", "SHL",
 	"SHR", "AND", "BOR", "XOR", "IFE", "IFN", "IFG", "IFB",
 	"JSR",
 	"POP", "PEEK", "PUSH", "SP", "PC", "O",
@@ -237,6 +239,7 @@ nextline:
 
 int next(void) {
 	token = _next();
+
 	//fprintf(stderr,"%3d %s\n", token, tnames[token]);
 	return token;
 }
@@ -341,12 +344,28 @@ int assemble_operand(void) {
 	return 0;
 }
 
-void assemble_binop(int op) {
+void assemble_binop(void) {
 	u16 pc = PC++;
 	int a, b;
-	a = assemble_operand();
-	expect(tCOMMA);
-	b = assemble_operand();
+	int op = token;
+
+	/* alias for push x, pop x */
+	if (token == tPUSH) {
+		op = tSET;
+		a = 0x1a; // push
+		b = assemble_operand();
+	} else if (token == tPOP) {
+		op = tSET;
+		a = assemble_operand();
+		b = 0x18; // pop
+	} else {
+		a = assemble_operand();
+		expect(tCOMMA);
+		b = assemble_operand();
+	}
+
+	/* token to opcode */
+	op -= (tSET - 1);
 	image[pc] = op | (a << 4) | (b << 10);
 }
 
@@ -388,7 +407,8 @@ again:
 		case tDIV: case tMOD: case tSHL: case tSHR:
 		case tAND: case tBOR: case tXOR: case tIFE:
 		case tIFN: case tIFG: case tIFB:
-			assemble_binop(token - tXXX); 
+		case tPUSH: case tPOP:
+			assemble_binop();
 			continue;
 		case tJSR:
 			pc = PC++;
