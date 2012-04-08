@@ -146,6 +146,7 @@ void resolve_fixups(void) {
 
 enum tokens {
 	tA, tB, tC, tX, tY, tZ, tI, tJ,
+	tR0, tR1, tR2, tR3, tR4, tR5, tR6, tR7,
 	tSET, tADD, tSUB, tMUL, tDIV, tMOD, tSHL,
 	tSHR, tAND, tBOR, tXOR, tIFE, tIFN, tIFG, tIFB,
 	tJSR,
@@ -157,6 +158,7 @@ enum tokens {
 };
 static const char *tnames[] = {
 	"A", "B", "C", "X", "Y", "Z", "I", "J",
+	"R0", "R1", "R2", "R3", "R4", "R5", "R6", "R7",
 	"SET", "ADD", "SUB", "MUL", "DIV", "MOD", "SHL",
 	"SHR", "AND", "BOR", "XOR", "IFE", "IFN", "IFG", "IFB",
 	"JSR",
@@ -279,6 +281,9 @@ int assemble_operand(void) {
 	case tA: case tB: case tC: case tX:
 	case tY: case tZ: case tI: case tJ:
 		return token & 7;
+	case tR0: case tR1: case tR2: case tR3:
+	case tR4: case tR5: case tR6: case tR7:
+		return (token - 8) & 7;
 	case tPOP: return 0x18;
 	case tPEEK: return 0x19;
 	case tPUSH: return 0x1a;
