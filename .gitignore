@@ -5,3 +5,4 @@ TAGS
 cscope.out
 *.bin
 *.hex
+*.o
