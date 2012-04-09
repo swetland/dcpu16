@@ -87,8 +87,8 @@ static u8 skiptable[32] = { /* operand forms that advance pc */
 };
 
 void dcpu_skip(struct dcpu *d) {
-	u16 op = d->m[d->pc++];
-	d->pc += skiptable[op >> 10];
+	u16 op = d->m[++d->pc];
+	d->pc += skiptable[(op >> 10) & 31];
 	if ((op & 15) == 0)
 		d->pc += skiptable[(op >> 4) & 31];	
 }
