@@ -276,6 +276,7 @@ void assemble_imm_or_label(void) {
 
 int assemble_operand(void) {
 	u16 n;
+
 	next();
 	switch (token) {
 	case tA: case tB: case tC: case tX:
@@ -303,6 +304,8 @@ int assemble_operand(void) {
 		if (token != tOBRACK)
 			die("expected [");
 	}
+
+	/* we must have seen a '[' */
 	next();
 	switch (token) {
 	case tA: case tB: case tC: case tX:
@@ -315,8 +318,7 @@ int assemble_operand(void) {
 			die("expected , or +");
 		next();
 		if (token == tSTRING) {
-			use_label(tstring, PC);
-			image[PC++] = 0;
+			use_label(tstring, PC++);
 		} else if (token == tNUMBER) {
 			image[PC++] = tnumber;
 		} else {
@@ -325,9 +327,11 @@ int assemble_operand(void) {
 		expect(tCBRACK);
 		return 0x10 | n;
 	case tSTRING:
-		use_label(tstring, PC);
+		use_label(tstring, PC++);
 	case tNUMBER:
-		image[PC++] = tnumber;
+		if (token == tNUMBER)
+			image[PC++] = tnumber;
+
 		next();
 		if (token == tCBRACK) {
 			return 0x1e;
