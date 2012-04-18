@@ -1,4 +1,5 @@
 
+CC := gcc
 CFLAGS := -Wall -g
 
 all: dcpu a16
@@ -13,6 +14,10 @@ a16: $(A16_OBJS)
 
 dcpu.c: emulator.h
 emulator.c: emulator.h
+
+.PHONY: test
+test:
+	dcpu test.hex
 
 clean:
 	rm -f dcpu a16 *.o
