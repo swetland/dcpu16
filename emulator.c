@@ -89,7 +89,7 @@ static u8 skiptable[32] = { /* operand forms that advance pc */
 void dcpu_skip(struct dcpu *d) {
 	u16 op = d->m[d->pc++];
 	d->pc += skiptable[op >> 10];
-	if ((op & 15) == 0)
+	if ((op & 15) != 0)
 		d->pc += skiptable[(op >> 4) & 31];	
 }
 
@@ -133,8 +133,11 @@ extended:
 		d->m[--(d->sp)] = d->pc;
 		d->pc = a;
 		return;
+        case 0x3F:
+		fprintf(stderr, "< ILLEGAL OPCODE (success code)>\n");
+		exit(0);
 	default:
 		fprintf(stderr, "< ILLEGAL OPCODE >\n");
-		exit(0);
+		exit(1);
 	}
 }
