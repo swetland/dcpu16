@@ -80,7 +80,7 @@ u16 *dcpu_opr(struct dcpu *d, u16 code) {
 	}
 }
 
-static u8 skiptable[32] = { /* operand forms that advance pc */
+static u8 skiptable[64] = { /* operand forms that advance pc */
 	[0x10] = 1, [0x11] = 1, [0x12] = 1, [0x13] = 1,
 	[0x14] = 1, [0x15] = 1, [0x16] = 1, [0x17] = 1,
 	[0x1E] = 1, [0x1F] = 1,
@@ -89,8 +89,8 @@ static u8 skiptable[32] = { /* operand forms that advance pc */
 void dcpu_skip(struct dcpu *d) {
 	u16 op = d->m[d->pc++];
 	d->pc += skiptable[op >> 10];
-	if ((op & 15) == 0)
-		d->pc += skiptable[(op >> 4) & 31];	
+	if ((op & 15) != 0)
+		d->pc += skiptable[(op >> 4) & 63];
 }
 
 void dcpu_step(struct dcpu *d) {
@@ -133,8 +133,11 @@ extended:
 		d->m[--(d->sp)] = d->pc;
 		d->pc = a;
 		return;
+        case 0x3F:
+		fprintf(stderr, "< ILLEGAL OPCODE (success code)>\n");
+		exit(0);
 	default:
 		fprintf(stderr, "< ILLEGAL OPCODE >\n");
-		exit(0);
+		exit(1);
 	}
 }
