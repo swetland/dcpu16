@@ -76,7 +76,7 @@ u16 *dcpu_opr(struct dcpu *d, u16 code) {
 	case 0x1f:
 		return d->m + d->pc++;
 	default:
-		return lit + (code & 0x1F);
+		return lit + (code & 0x1F) - 1;
 	}
 }
 
@@ -128,7 +128,7 @@ void dcpu_step(struct dcpu *d) {
 
 extended:
 	a = *dcpu_opr(d, op >> 10);
-	switch ((op >> 4) & 0x3F) {
+	switch ((op >> 5) & 0x1F) {
 	case 0x01:
 		d->m[--(d->sp)] = d->pc;
 		d->pc = a;
