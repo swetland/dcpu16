@@ -37,7 +37,8 @@ struct dcpu {
 	u16 r[8];
 	u16 pc;
 	u16 sp;
-	u16 ov;
+	u16 ex;
+	u16 ia;
 	u16 unused;
 	u16 m[65536];
 };

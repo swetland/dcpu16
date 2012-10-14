@@ -152,7 +152,7 @@ enum tokens {
 	tJSR, 
 	tINT, tIAG, tIAS, tRFI, tIAQ,
 	tHWN, tHWQ, tHWI,
-	tPOP, tPEEK, tPUSH, tSP, tPC, tO,
+	tPOP, tPEEK, tPUSH, tSP, tPC, tEX,
 	tJMP, tMOV, tNOP,
 	tDATA, tDAT, tDW, tWORD,
 	tCOMMA, tOBRACK, tCBRACK, tCOLON, tPLUS,
@@ -166,7 +166,7 @@ static const char *tnames[] = {
 	"JSR",
 	"INT", "IAG", "IAS", "RFI", "IAQ",
 	"HWN", "HWQ", "HWI",
-	"POP", "PEEK", "PUSH", "SP", "PC", "O",
+	"POP", "PEEK", "PUSH", "SP", "PC", "EX",
 	"JMP", "MOV", "NOP",
 	"DATA", "DAT", "DW", "WORD",
 	",", "[", "]", ":", "+",
@@ -294,7 +294,7 @@ int assemble_operand(void) {
 	case tPUSH: return 0x1a;
 	case tSP: return 0x1b;
 	case tPC: return 0x1c;
-	case tO: return 0x1d;
+	case tEX: return 0x1d;
 	case tNUMBER:
 		if (tnumber < 0x20)
 			return tnumber + 0x21;

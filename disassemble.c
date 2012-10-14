@@ -59,7 +59,7 @@ static u16 *dis_operand(u16 *pc, u16 n, char *out) {
 		case 0x1A: strcpy(out,"PUSH"); break;
 		case 0x1B: strcpy(out,"SP"); break;
 		case 0x1C: strcpy(out,"PC"); break;
-		case 0x1D: strcpy(out,"O"); break;
+		case 0x1D: strcpy(out,"EX"); break;
 		case 0x1e: sprintf(out,"[0x%04x]",*pc++); break;
 		case 0x1f: sprintf(out,"0x%04x",*pc++); break;
 	}

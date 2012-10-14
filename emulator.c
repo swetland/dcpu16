@@ -70,7 +70,7 @@ u16 *dcpu_opr(struct dcpu *d, u16 code) {
 	case 0x1c:
 		return &d->pc;
 	case 0x1d:
-		return &d->ov;
+		return &d->ex;
 	case 0x1e:
 		return d->m + d->m[d->pc++];
 	case 0x1f:
@@ -107,13 +107,13 @@ void dcpu_step(struct dcpu *d) {
 
 	switch (op & 0xF) {
 	case 0x1: res = b; break;
-	case 0x2: res = a + b; d->ov = res >> 16; break;	
-	case 0x3: res = a - b; d->ov = res >> 16; break;
-	case 0x4: res = a * b; d->ov = res >> 16; break;
-	case 0x5: if (b) { res = a / b; } else { res = 0; } d->ov = res >> 16; break;
+	case 0x2: res = a + b; d->ex = res >> 16; break;	
+	case 0x3: res = a - b; d->ex = res >> 16; break;
+	case 0x4: res = a * b; d->ex = res >> 16; break;
+	case 0x5: if (b) { res = a / b; } else { res = 0; } d->ex = res >> 16; break;
 	case 0x6: if (b) { res = a % b; } else { res = 0; } break;
-	case 0x7: res = a << b; d->ov = res >> 16; break;
-	case 0x8: res = a >> b; d->ov = res >> 16; break;
+	case 0x7: res = a << b; d->ex = res >> 16; break;
+	case 0x8: res = a >> b; d->ex = res >> 16; break;
 	case 0x9: res = a & b; break;
 	case 0xA: res = a | b; break;
 	case 0xB: res = a ^ b; break;
@@ -128,10 +128,31 @@ void dcpu_step(struct dcpu *d) {
 
 extended:
 	a = *dcpu_opr(d, op >> 10);
+	aa = dcpu_opr(d, op >> 10);
 	switch ((op >> 5) & 0x1F) {
 	case 0x01:
 		d->m[--(d->sp)] = d->pc;
 		d->pc = a;
+		return;
+	case 0x08:		// TODO: Realize interrupt work
+		return;
+	case 0x0b:
+		return;
+	case 0x0c:
+		return;
+	case 0x09:
+		*aa = d->ia;
+		return;
+	case 0x0a:
+		d->ia = a;
+		return;
+	case 0x10:		// TODO: There is no devices at current time
+		*aa = 0;
+		return;
+	case 0x11:		// HWQ
+		memset(d->r,0x00,10);	// A,B,C,X,Y are set to zero
+		return;
+	case 0x12:		// HWI
 		return;
 	default:
 		fprintf(stderr, "< ILLEGAL OPCODE >\n");
