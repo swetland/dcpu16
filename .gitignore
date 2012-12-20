@@ -6,3 +6,5 @@ cscope.out
 *.bin
 *.hex
 *.o
+a16
+dcpu

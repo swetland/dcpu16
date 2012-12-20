@@ -34,6 +34,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <string.h>
 #include <ctype.h>
 
@@ -93,11 +94,37 @@ void dcpu_skip(struct dcpu *d) {
 		d->pc += skiptable[(op >> 4) & 31];	
 }
 
+void dcpu_interrupt(struct dcpu *d, u16 src) {
+	// we assume we are not called with a dequed interrupt when qeueing is on...
+	if (d->iaq_en) {
+		if (d->iaq_ind < 256) {
+			d->iaq[d->iaq_ind++] = src;
+		}
+		else {
+			printf("iaq overflow src=0x%04x\n", src);
+		}
+	} else {
+		d->m[--(d->sp)] = d->r[0];
+		d->m[--(d->sp)] = d->pc;
+		d->pc = d->ia;
+		d->r[0] = src;
+		d->iaq_en = true;
+	}
+}
+
 void dcpu_step(struct dcpu *d) {
-	u16 op = d->m[d->pc++];
+	u16 op;
 	u16 dst;
 	u32 res;
 	u16 a, b, *aa;
+
+	// if iaq is off, deal with any queued interrupts (max 1 per instruction)
+	if (!d->iaq_en && d->iaq_ind > 0) {
+		dcpu_interrupt(d, d->iaq[--d->iaq_ind]);
+		return;
+	}
+
+	op = d->m[d->pc++];
 
 	if ((op & 0xF) == 0) goto extended;
 
@@ -127,11 +154,46 @@ void dcpu_step(struct dcpu *d) {
 	return;
 
 extended:
-	a = *dcpu_opr(d, op >> 10);
+	aa = dcpu_opr(d, op >> 10);
+	a = *aa;
 	switch ((op >> 4) & 0x3F) {
 	case 0x01:
 		d->m[--(d->sp)] = d->pc;
 		d->pc = a;
+		return;
+	case 0x08:
+		if (d->ia) {
+			dcpu_interrupt(d, a);
+		}
+		return;
+	case 0x09:
+		*aa = d->ia;
+		return;
+	case 0x0a:
+		d->ia = a;
+		return;
+	case 0x0b:
+		d->iaq_en = false;
+		d->pc = d->m[d->sp++];
+		d->r[0] = d->m[d->sp++];
+		return;
+	case 0x0c:
+		d->iaq_en = a != 0;
+		return;
+	case 0x10:
+		// for now no modules...
+		*aa = 0;
+		return;
+	case 0x11:
+		printf("modules NOT implemented!\n");
+		d->r[0] = 0;
+		d->r[1] = 0;
+		d->r[2] = 0;
+		d->r[3] = 0;
+		d->r[4] = 0;
+		return;
+	case 0x12:
+		printf("modules NOT implemented!\n");
 		return;
 	default:
 		fprintf(stderr, "< ILLEGAL OPCODE >\n");
