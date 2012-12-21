@@ -64,6 +64,7 @@ enum outformat {
 	OUTFORMAT_PRETTY,
 	OUTFORMAT_HEX,
 	OUTFORMAT_BINARY,
+	OUTFORMAT_C,
 };
 
 void die(const char *fmt, ...) {
@@ -480,6 +481,17 @@ void emit(const char *fn, enum outformat format) {
 		} else if (format == OUTFORMAT_BINARY) {
 			/* XXX handle host endian */
 			fwrite(pc, sizeof(*pc), 1, fp);
+		} else if (format == OUTFORMAT_C) {
+			if (note[pc-image] == 'd') {
+				fprintf(fp, "0x%04x,\n", *pc);
+				dis = pc + 1;
+			} else if (pc == dis) {
+				char out[128];
+				dis = disassemble(pc, out);
+				fprintf(fp, "0x%04x,\t// 0x%04x:\t%s\n", *pc, (unsigned)(pc-image), out);
+			} else {
+				fprintf(fp, "0x%04x, \n", *pc);
+			}
 		}
 		pc++;
 	}
@@ -526,6 +538,8 @@ int main(int argc, char **argv) {
 					oformat = OUTFORMAT_HEX;
 				} else if (!strcasecmp(optarg, "pretty")) {
 					oformat = OUTFORMAT_PRETTY;
+				} else if (!strcasecmp(optarg, "c")) {
+					oformat = OUTFORMAT_C;
 				} else {
 					usage(argc, argv);
 					return 1;
