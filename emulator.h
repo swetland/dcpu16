@@ -29,9 +29,17 @@
 #ifndef _DCPU_H_
 #define _DCPU_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
+
+#ifndef DCPU_WORDS
+#define DCPU_WORDS 65536
+#endif
 
 struct dcpu {
 	u16 r[8];
@@ -43,9 +51,13 @@ struct dcpu {
 	u16 iaq_en;
 	u16 iaq_ind;
 	u16 iaq[256];
-	u16 m[65536];
+	u16 m[DCPU_WORDS];
 };
 
 void dcpu_step(struct dcpu *d);
+
+#ifdef __cplusplus
+};
+#endif
 
 #endif
