@@ -41,6 +41,16 @@ typedef uint32_t u32;
 #define DCPU_WORDS 65536
 #endif
 
+struct dcpu;
+
+struct module {
+	void (*hwq)(struct dcpu * d, struct module * module);
+	void (*hwi)(struct dcpu * d, struct module * module);
+	void (*start)(struct dcpu * d, struct module * module);
+	void (*stop)(struct dcpu * d, struct module * module);
+	void (*idle)(struct dcpu * d, struct module * module);
+};
+
 struct dcpu {
 	u16 r[8];
 	u16 pc;
@@ -52,6 +62,7 @@ struct dcpu {
 	u16 iaq_ind;
 	u16 iaq[256];
 	u16 m[DCPU_WORDS];
+	struct module * modules;
 };
 
 void dcpu_step(struct dcpu *d);
