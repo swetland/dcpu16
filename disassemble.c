@@ -52,14 +52,14 @@ static u16 *dis_operand(u16 *pc, u16 n, char *out) {
 	} else if (n < 0x18) {
 		sprintf(out,"[%c, 0x%04x]",regs[n & 7], *pc++);
 	} else if (n > 0x1f) {
-		sprintf(out,"%d", n - 0x20);
+		sprintf(out,"%d", n - 0x21);
 	} else switch (n) {
 		case 0x18: strcpy(out,"POP"); break;
 		case 0x19: strcpy(out,"PEEK"); break;
 		case 0x1A: strcpy(out,"PUSH"); break;
 		case 0x1B: strcpy(out,"SP"); break;
 		case 0x1C: strcpy(out,"PC"); break;
-		case 0x1D: strcpy(out,"O"); break;
+		case 0x1D: strcpy(out,"EX"); break;
 		case 0x1e: sprintf(out,"[0x%04x]",*pc++); break;
 		case 0x1f: sprintf(out,"0x%04x",*pc++); break;
 	}
@@ -82,11 +82,55 @@ u16 *disassemble(u16 *pc, char *out) {
 		pc = dis_operand(pc, b, out+strlen(out)); 
 		return pc;
 	}
-	if (a == 1) {
-		sprintf(out,"JSR ");
-		pc = dis_operand(pc, b, out+strlen(out));
-		return pc;
+	switch (a >> 1) {
+		case 0x01: 
+			sprintf(out,"JSR ");
+			pc = dis_operand(pc, b, out+strlen(out));
+			return pc;
+			break;
+		
+		case 0x08:
+			sprintf(out,"INT ");
+			pc = dis_operand(pc, b, out+strlen(out));
+			return pc;
+			break;
+		case 0x09:
+			sprintf(out,"IAG ");
+			pc = dis_operand(pc, b, out+strlen(out));
+			return pc;
+			break;
+		case 0x0a:
+			sprintf(out,"IAS ");
+			pc = dis_operand(pc, b, out+strlen(out));
+			return pc;
+			break;
+		case 0x0b:
+			sprintf(out,"RFI ");
+			pc = dis_operand(pc, b, out+strlen(out));
+			return pc;
+			break;
+		case 0x0c:
+			sprintf(out,"IAQ ");
+			pc = dis_operand(pc, b, out+strlen(out));
+			return pc;
+			break;
+		case 0x10:
+			sprintf(out,"HWN ");
+			pc = dis_operand(pc, b, out+strlen(out));
+			return pc;
+			break;
+		case 0x11:
+			sprintf(out,"HWQ ");
+			pc = dis_operand(pc, b, out+strlen(out));
+			return pc;
+			break;
+		case 0x12:
+			sprintf(out,"HWI ");
+			pc = dis_operand(pc, b, out+strlen(out));
+			return pc;
+			break;
 	}
+
 	sprintf(out,"UNK[%02x] ", a);
 	pc = dis_operand(pc, b, out+strlen(out));
 	return pc;

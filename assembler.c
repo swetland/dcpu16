@@ -149,8 +149,10 @@ enum tokens {
 	tR0, tR1, tR2, tR3, tR4, tR5, tR6, tR7,
 	tSET, tADD, tSUB, tMUL, tDIV, tMOD, tSHL,
 	tSHR, tAND, tBOR, tXOR, tIFE, tIFN, tIFG, tIFB,
-	tJSR,
-	tPOP, tPEEK, tPUSH, tSP, tPC, tO,
+	tJSR, 
+	tINT, tIAG, tIAS, tRFI, tIAQ,
+	tHWN, tHWQ, tHWI,
+	tPOP, tPEEK, tPUSH, tSP, tPC, tEX,
 	tJMP, tMOV, tNOP,
 	tDATA, tDAT, tDW, tWORD,
 	tCOMMA, tOBRACK, tCBRACK, tCOLON, tPLUS,
@@ -162,7 +164,9 @@ static const char *tnames[] = {
 	"SET", "ADD", "SUB", "MUL", "DIV", "MOD", "SHL",
 	"SHR", "AND", "BOR", "XOR", "IFE", "IFN", "IFG", "IFB",
 	"JSR",
-	"POP", "PEEK", "PUSH", "SP", "PC", "O",
+	"INT", "IAG", "IAS", "RFI", "IAQ",
+	"HWN", "HWQ", "HWI",
+	"POP", "PEEK", "PUSH", "SP", "PC", "EX",
 	"JMP", "MOV", "NOP",
 	"DATA", "DAT", "DW", "WORD",
 	",", "[", "]", ":", "+",
@@ -290,10 +294,10 @@ int assemble_operand(void) {
 	case tPUSH: return 0x1a;
 	case tSP: return 0x1b;
 	case tPC: return 0x1c;
-	case tO: return 0x1d;
+	case tEX: return 0x1d;
 	case tNUMBER:
 		if (tnumber < 0x20)
-			return tnumber + 0x20;
+			return tnumber + 0x21;
 		image[PC++] = tnumber;
 		return 0x1f;
 	case tSTRING:
@@ -427,7 +431,47 @@ again:
 		case tJSR:
 			pc = PC++;
 			n = assemble_operand();
-			image[pc] = (n << 10) | 0x0010;
+			image[pc] = (n << 10) | (0x01 << 5);
+			continue;
+		case tINT:
+			pc = PC++;
+			n = assemble_operand();
+			image[pc] = (n << 10) | (0x08 << 5);
+			continue;
+		case tIAG:
+			pc = PC++;
+			n = assemble_operand();
+			image[pc] = (n << 10) | (0x09 << 5);
+			continue;
+		case tIAS:
+			pc = PC++;
+			n = assemble_operand();
+			image[pc] = (n << 10) | (0x0a << 5);
+			continue;
+		case tRFI:
+			pc = PC++;
+			n = assemble_operand();
+			image[pc] = (n << 10) | (0x0b << 5);
+			continue;
+		case tIAQ:
+			pc = PC++;
+			n = assemble_operand();
+			image[pc] = (n << 10) | (0x0c << 5);
+			continue;
+		case tHWN:
+			pc = PC++;
+			n = assemble_operand();
+			image[pc] = (n << 10) | (0x10 << 5);
+			continue;
+		case tHWQ:
+			pc = PC++;
+			n = assemble_operand();
+			image[pc] = (n << 10) | (0x11 << 5);
+			continue;
+		case tHWI:
+			pc = PC++;
+			n = assemble_operand();
+			image[pc] = (n << 10) | (0x12 << 5);
 			continue;
 		default:
 			die("unexpected: %s", tnames[token]);
