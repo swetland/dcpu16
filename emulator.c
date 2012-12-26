@@ -112,6 +112,20 @@ void dcpu_interrupt(struct dcpu *d, u16 src) {
 	}
 }
 
+int dcpu_add_module(struct dcpu *d, struct module *m) {
+	int index = d->module_count;
+
+	if (index >= MAX_MODULES) {
+		printf("Out of modules!\n");
+		return -1;
+	}
+
+	d->module_count++;
+	d->modules[index] = m;
+
+	return index;
+}
+
 void dcpu_step(struct dcpu *d) {
 	u16 op;
 	u16 dst;

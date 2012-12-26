@@ -41,6 +41,8 @@ typedef uint32_t u32;
 #define DCPU_WORDS 65536
 #endif
 
+#define	MAX_MODULES	16
+
 struct dcpu;
 
 struct module {
@@ -61,9 +63,12 @@ struct dcpu {
 	u16 iaq_en;
 	u16 iaq_ind;
 	u16 iaq[256];
+	u16 module_count;
 	u16 m[DCPU_WORDS];
-	struct module * modules;
+	struct module * modules[MAX_MODULES];
 };
+
+int dcpu_add_module(struct dcpu *d, struct module *m);
 
 void dcpu_step(struct dcpu *d);
 
