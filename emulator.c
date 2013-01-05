@@ -40,7 +40,6 @@
 
 #include "emulator.h"
 
-extern u16 *disassemble(u16 *pc, char *out);
 
 static u16 lit[0x20] = {
 	0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
@@ -126,6 +125,24 @@ int dcpu_add_module(struct dcpu *d, struct module *m) {
 	return index;
 }
 
+void dcpu_start_modules(struct dcpu *d) {
+	for (int i = 0; i < d->module_count; i++) {
+		d->modules[i]->start(d, d->modules[i]);
+	}
+}
+
+void dcpu_stop_modules(struct dcpu *d) {
+	for (int i = 0; i < d->module_count; i++) {
+		d->modules[i]->stop(d, d->modules[i]);
+	}
+}
+
+void dcpu_idle_modules(struct dcpu *d) {
+	for (int i = 0; i < d->module_count; i++) {
+		d->modules[i]->idle(d, d->modules[i]);
+	}
+}
+
 void dcpu_step(struct dcpu *d) {
 	u16 op;
 	u16 dst;
@@ -148,7 +165,7 @@ void dcpu_step(struct dcpu *d) {
 
 	switch (op & 0xF) {
 	case 0x1: res = b; break;
-	case 0x2: res = a + b; d->ov = res >> 16; break;	
+	case 0x2: res = a + b; d->ov = res >> 16; break;
 	case 0x3: res = a - b; d->ov = res >> 16; break;
 	case 0x4: res = a * b; d->ov = res >> 16; break;
 	case 0x5: if (b) { res = a / b; } else { res = 0; } d->ov = res >> 16; break;
@@ -195,19 +212,31 @@ extended:
 		d->iaq_en = a != 0;
 		return;
 	case 0x10:
-		// for now no modules...
-		*aa = 0;
+		*aa = d->module_count;
 		return;
 	case 0x11:
-		printf("modules NOT implemented!\n");
-		d->r[0] = 0;
-		d->r[1] = 0;
-		d->r[2] = 0;
-		d->r[3] = 0;
-		d->r[4] = 0;
+		if (a >= d->module_count) {
+			printf("invalid module index: %d\n", a);
+			d->r[0] = 0;
+			d->r[1] = 0;
+			d->r[2] = 0;
+			d->r[3] = 0;
+			d->r[4] = 0;
+		} else {
+			d->modules[a]->hwq(d, d->modules[a]);
+		}
 		return;
 	case 0x12:
-		printf("modules NOT implemented!\n");
+		if (a >= d->module_count) {
+			printf("invalid module index: %d\n", a);
+			d->r[0] = 0;
+			d->r[1] = 0;
+			d->r[2] = 0;
+			d->r[3] = 0;
+			d->r[4] = 0;
+		} else {
+			d->modules[a]->hwi(d, d->modules[a]);
+		}
 		return;
 	default:
 		fprintf(stderr, "< ILLEGAL OPCODE >\n");

@@ -69,6 +69,8 @@ struct dcpu {
 };
 
 int dcpu_add_module(struct dcpu *d, struct module *m);
+void dcpu_start_modules(struct dcpu *d);
+void dcpu_stop_modules(struct dcpu *d);
 
 void dcpu_step(struct dcpu *d);
 

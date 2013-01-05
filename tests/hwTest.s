@@ -23,7 +23,8 @@
 	SET		I, 7
 	SET		J, 8
 	HWQ		0
-	HWI		0
+	SET		A, hello
+	JSR		printString
 :end
 	WORD	0xeee0
 
@@ -34,4 +35,22 @@
 :intHandler
 	SET		A, 0x31
 	RFI		0
-	
+
+:printString
+	SET		PUSH, B
+
+	SET		B, A
+:nextChar
+	SET		A, [B]
+	IFE		A, 0
+	SET		PC, loopDone
+	ADD		B, 1
+	HWI		0
+	SET		PC, nextChar
+
+:loopDone
+	SET		B, POP
+	SET		PC, POP
+
+:hello
+	DAT		"Hello World", 0
