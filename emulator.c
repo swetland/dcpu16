@@ -149,6 +149,10 @@ void dcpu_step(struct dcpu *d) {
 	u32 res;
 	u16 a, b, *aa;
 
+	if (d->stop) {
+		return;
+	}
+
 	// if iaq is off, deal with any queued interrupts (max 1 per instruction)
 	if (!d->iaq_en && d->iaq_ind > 0) {
 		dcpu_interrupt(d, d->iaq[--d->iaq_ind]);
@@ -240,6 +244,7 @@ extended:
 		return;
 	default:
 		fprintf(stderr, "< ILLEGAL OPCODE >\n");
-		exit(0);
+		d->stop = true;
+		return;
 	}
 }

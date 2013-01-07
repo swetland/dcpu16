@@ -58,7 +58,7 @@ struct dcpu {
 	u16 pc;
 	u16 sp;
 	u16 ov;
-	u16 unused;
+	u16 stop;
 	u16 ia;
 	u16 iaq_en;
 	u16 iaq_ind;
