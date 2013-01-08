@@ -53,4 +53,4 @@
 	SET		PC, POP
 
 :hello
-	DAT		"Hello World", 0
+	DAT		"Hello World\n", 0
