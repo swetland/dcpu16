@@ -2,6 +2,7 @@
 ; query number of HW devices
 	SET		A, 0x30
 	JSR		countHW
+	JSR		initMotors
 	SET		A, 0x06
 	INT		0x3
 	IAS		intHandler
@@ -23,8 +24,12 @@
 	SET		I, 7
 	SET		J, 8
 	HWQ		0
+	HWQ		1
+	HWQ		2
+	JSR		goForwards
 	SET		A, hello
 	JSR		printString
+	JSR		stop
 :end
 	WORD	0xeee0
 
@@ -50,6 +55,55 @@
 
 :loopDone
 	SET		B, POP
+	SET		PC, POP
+
+; Motor Functions
+; IO7:  Right Motor Direction
+; IO8:  Left Motor Direction
+; IO9:  Right Motor Power
+; IO10: Left Motor Direction
+
+:initMotors
+; all forward and no power
+	; clear power
+	SET		A, 3
+	SET		B, 0x0600
+	HWI		1
+	; set direction - forward
+	SET		A, 2
+	SET		B, 0x0180
+	HWI		1
+	; output all
+	SET		A, 1
+	SET		B, 0x0780
+	HWI		1
+	SET		PC, POP
+
+:goForwards
+	; set direction - forward
+	SET		A, 2
+	SET		B, 0x0180
+	HWI		1
+	; set power
+	SET		A, 2
+	SET		B, 0x0600
+	HWI		1
+	SET		PC, POP
+
+:goBackwards
+	SET		PC, POP
+
+:turnLeft
+	SET		PC, POP
+
+:turnRight
+	SET		PC, POP
+
+:stop
+	; clear power
+	SET		A, 3
+	SET		B, 0x0600
+	HWI		1
 	SET		PC, POP
 
 :hello
