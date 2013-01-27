@@ -1,69 +1,57 @@
 
-; query number of HW devices
-	SET		A, 0x30
-	JSR		countHW
 	JSR		initMotors
 
-; query X mag sensor
-	SET		A, 0x00
-	HWI		[nav_mod]
-	SET		A, 0x01
-	HWI		[nav_mod]
-	SET		A, 0x02
-	HWI		[nav_mod]
+	; turn left until we face "North"
+:goNorth
+	JSR		isNorth
+	IFE		A, 1
+	SET		PC, goWest
+	JSR		turnLeft
+	SET		PC, goNorth
 
-	SET		A, 0x06
-	INT		0x3
-	IAS		intHandler
-	INT		0x3
-	IAQ		1
-	INT		0x3
-	SET		C, 0
-	IAQ		C
-	MOV		A, 0x2
-	INT		0x3
-	SET		A, 1
-	IAG		B
-	SET		A, 1
-	SET		B, 2
-	SET		C, 3
-	SET		X, 4
-	SET		Y, 5
-	SET		Z, 6
-	SET		I, 7
-	SET		J, 8
-	HWQ		0
-	HWQ		1
-	HWQ		2
-	JSR		goForwards
-	SET		A, hello
-	JSR		printString
+:goWest
 	JSR		stop
+	JSR		isWest
+
 :end
 	WORD	0xeee0
 
-:countHW
-	HWN		A
+:isNorth
+	; north is defined as X >= 300 && y <= -300
+	; unsigned comparisons though!
+	SET		A, 0
+	HWI		[nav_mod]
+	IFG		300, A
+	SET		PC, notDir
+	SET		A, 1
+	HWI		[nav_mod]
+	IFG		A, -300
+	SET		PC, notDir
+	SET		PC, isDir
+
+:isWest
+	; west is defined as X >= 300 && -100 < y < 100
+	SET		A, 0
+	HWI		[nav_mod]
+	IFG		300, A
+	SET		PC, notDir
+	SET		A, 1
+	HWI		[nav_mod]
+	IFG		-100, A		; A < -100
+	SET		PC, notDir
+	; check for A < 0
+	IFG		A, 0x7FFF
+	SET		PC, isDir
+	IFG		A, 100		; A > 100
+	SET		PC, notDir
+	SET		PC, isDir
+
+:isDir
+	SET		A, 1
 	SET		PC, POP
 
-:intHandler
-	SET		A, 0x31
-	RFI		0
-
-:printString
-	SET		PUSH, B
-
-	SET		B, A
-:nextChar
-	SET		A, [B]
-	IFE		A, 0
-	SET		PC, loopDone
-	ADD		B, 1
-	HWI		0
-	SET		PC, nextChar
-
-:loopDone
-	SET		B, POP
+:notDir
+	SET		A, 0
 	SET		PC, POP
 
 ; Motor Functions
@@ -103,6 +91,17 @@
 	SET		PC, POP
 
 :turnLeft
+	; set right forward, left back
+	SET		A, 2
+	SET		B, 0x0100
+	HWI		1
+	SET		A, 3
+	SET		B, 0x0080
+	HWI		1
+	; set power
+	SET		A, 2
+	SET		B, 0x0600
+	HWI		1
 	SET		PC, POP
 
 :turnRight
