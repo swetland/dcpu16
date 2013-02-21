@@ -42,6 +42,13 @@ static const char *opcode[] = {
 	"XXX", "MOV", "ADD", "SUB", "MUL", "DIV", "MOD", "SHL",
 	"SHR", "AND", "BOR", "XOR", "IFE", "IFN", "IFG", "IFB",
 };
+
+static const char *extended_opcode[] = {
+	"YYY", "JSR", "RS1", "RS2", "RS3", "RS4", "RS5", "RS6",
+	"INT", "IAG", "IAS", "RFI", "IAQ", "RS7", "RS8", "RS9",
+	"HWN", "HWQ", "HWI",
+};
+
 static const char regs[8] = "ABCXYZIJ";
 
 static u16 *dis_operand(u16 *pc, u16 n, char *out) {
@@ -82,8 +89,8 @@ u16 *disassemble(u16 *pc, char *out) {
 		pc = dis_operand(pc, b, out+strlen(out)); 
 		return pc;
 	}
-	if (a == 1) {
-		sprintf(out,"JSR ");
+	if (a > 0 && a <= 0x12) {
+		sprintf(out,"%s ",extended_opcode[a]);
 		pc = dis_operand(pc, b, out+strlen(out));
 		return pc;
 	}

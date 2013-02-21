@@ -29,19 +29,53 @@
 #ifndef _DCPU_H_
 #define _DCPU_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
+
+#ifndef DCPU_WORDS
+#define DCPU_WORDS 65536
+#endif
+
+#define	MAX_MODULES	16
+
+struct dcpu;
+
+struct module {
+	void (*hwq)(struct dcpu * d, struct module * module);
+	void (*hwi)(struct dcpu * d, struct module * module);
+	void (*start)(struct dcpu * d, struct module * module);
+	void (*stop)(struct dcpu * d, struct module * module);
+	void (*idle)(struct dcpu * d, struct module * module);
+};
 
 struct dcpu {
 	u16 r[8];
 	u16 pc;
 	u16 sp;
 	u16 ov;
-	u16 unused;
-	u16 m[65536];
+	u16 stop;
+	u16 ia;
+	u16 iaq_en;
+	u16 iaq_ind;
+	u16 iaq[256];
+	u16 module_count;
+	u16 m[DCPU_WORDS];
+	struct module * modules[MAX_MODULES];
 };
 
+int dcpu_add_module(struct dcpu *d, struct module *m);
+void dcpu_start_modules(struct dcpu *d);
+void dcpu_stop_modules(struct dcpu *d);
+
 void dcpu_step(struct dcpu *d);
+
+#ifdef __cplusplus
+};
+#endif
 
 #endif

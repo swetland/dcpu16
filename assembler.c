@@ -64,6 +64,7 @@ enum outformat {
 	OUTFORMAT_PRETTY,
 	OUTFORMAT_HEX,
 	OUTFORMAT_BINARY,
+	OUTFORMAT_C,
 };
 
 void die(const char *fmt, ...) {
@@ -149,7 +150,9 @@ enum tokens {
 	tR0, tR1, tR2, tR3, tR4, tR5, tR6, tR7,
 	tSET, tADD, tSUB, tMUL, tDIV, tMOD, tSHL,
 	tSHR, tAND, tBOR, tXOR, tIFE, tIFN, tIFG, tIFB,
-	tJSR,
+	tJSR, tR8, tR9, tR10, tR11, tR12, tR13, tINT,
+	tIAG, tIAS, tRFI, tIAQ, tR14, tR15, tR16,
+	tHWN, tHWQ, tHWI,
 	tPOP, tPEEK, tPUSH, tSP, tPC, tO,
 	tJMP, tMOV, tNOP,
 	tDATA, tDAT, tDW, tWORD,
@@ -161,7 +164,9 @@ static const char *tnames[] = {
 	"R0", "R1", "R2", "R3", "R4", "R5", "R6", "R7",
 	"SET", "ADD", "SUB", "MUL", "DIV", "MOD", "SHL",
 	"SHR", "AND", "BOR", "XOR", "IFE", "IFN", "IFG", "IFB",
-	"JSR",
+	"JSR", "R8", "R9", "R10", "R11", "R12", "R13", "INT",
+	"IAG", "IAS", "RFI", "IAQ", "R14", "R15", "R16",
+	"HWN", "HWQ", "HWI",
 	"POP", "PEEK", "PUSH", "SP", "PC", "O",
 	"JMP", "MOV", "NOP",
 	"DATA", "DAT", "DW", "WORD",
@@ -275,7 +280,7 @@ void assemble_imm_or_label(void) {
 }
 
 int assemble_operand(void) {
-	u16 n;
+	u16 n = 0;
 
 	next();
 	switch (token) {
@@ -353,6 +358,14 @@ int assemble_operand(void) {
 	return 0;
 }
 
+void assemble_unop(void) {
+	int pc = PC++;
+	int a;
+	int op = token - (tJSR - 1);
+	a = assemble_operand();
+	image[pc] = (op << 4) | (a << 10);
+}
+
 void assemble_binop(void) {
 	u16 pc = PC++;
 	int a, b;
@@ -389,7 +402,6 @@ void assemble_jump(void) {
 }
 
 void assemble(const char *fn) {
-	u16 pc, n;
 	fin = fopen(fn, "r");
 	filename = fn;
 	linenumber = 0;
@@ -424,10 +436,10 @@ again:
 		case tPUSH: case tPOP: case tNOP:
 			assemble_binop();
 			continue;
-		case tJSR:
-			pc = PC++;
-			n = assemble_operand();
-			image[pc] = (n << 10) | 0x0010;
+		case tJSR: case tINT: case tIAG: case tIAS:
+		case tRFI: case tIAQ: case tHWN: case tHWQ:
+		case tHWI:
+			assemble_unop();
 			continue;
 		default:
 			die("unexpected: %s", tnames[token]);
@@ -436,6 +448,8 @@ again:
 done:
 	fclose(fin);
 }
+
+#ifndef A16_EMBEDDED
 
 void emit(const char *fn, enum outformat format) {
 	FILE *fp;
@@ -469,6 +483,17 @@ void emit(const char *fn, enum outformat format) {
 		} else if (format == OUTFORMAT_BINARY) {
 			/* XXX handle host endian */
 			fwrite(pc, sizeof(*pc), 1, fp);
+		} else if (format == OUTFORMAT_C) {
+			if (note[pc-image] == 'd') {
+				fprintf(fp, "0x%04x,\n", *pc);
+				dis = pc + 1;
+			} else if (pc == dis) {
+				char out[128];
+				dis = disassemble(pc, out);
+				fprintf(fp, "0x%04x,\t// 0x%04x:\t%s\n", *pc, (unsigned)(pc-image), out);
+			} else {
+				fprintf(fp, "0x%04x, \n", *pc);
+			}
 		}
 		pc++;
 	}
@@ -515,6 +540,8 @@ int main(int argc, char **argv) {
 					oformat = OUTFORMAT_HEX;
 				} else if (!strcasecmp(optarg, "pretty")) {
 					oformat = OUTFORMAT_PRETTY;
+				} else if (!strcasecmp(optarg, "c")) {
+					oformat = OUTFORMAT_C;
 				} else {
 					usage(argc, argv);
 					return 1;
@@ -547,4 +574,5 @@ int main(int argc, char **argv) {
 	}
 	return 0;
 }
+#endif
 
