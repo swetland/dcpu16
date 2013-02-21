@@ -280,7 +280,7 @@ void assemble_imm_or_label(void) {
 }
 
 int assemble_operand(void) {
-	u16 n;
+	u16 n = 0;
 
 	next();
 	switch (token) {
@@ -449,6 +449,8 @@ done:
 	fclose(fin);
 }
 
+#ifndef A16_EMBEDDED
+
 void emit(const char *fn, enum outformat format) {
 	FILE *fp;
 	u16 *pc = image;
@@ -572,4 +574,5 @@ int main(int argc, char **argv) {
 	}
 	return 0;
 }
+#endif
 
